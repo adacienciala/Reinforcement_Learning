@@ -71,3 +71,7 @@ Thumbs.db
 *.dll
 *.exe
 
+# Welp
+debug
+release
+x64
