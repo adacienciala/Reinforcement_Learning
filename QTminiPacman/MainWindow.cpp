@@ -14,6 +14,17 @@ MainWindow::MainWindow(QWidget *parent)
 		{{0, 3}, 0 }, {{1, 3}, -100 }, {{2, 3}, -100 }, {{3, 3}, 0 },
 		{{0, 4}, 0 }, {{1, 4}, 0 }, {{2, 4}, 0 }, {{3, 4}, 0 } };
 
+	int width = 4, height = 5;
+
+	//automatyczne przypisanie labelow by bylo fajne kiedys V:
+	/*for (int i = 0; i < width; ++i)
+	{
+		for (int j = 0; j < height; ++j)
+		{
+			
+		}
+	}*/
+
 	this->labels = {
 		{{0, 0}, ui->label_00}, {{1, 0}, ui->label_10}, {{2, 0}, ui->label_20}, {{3, 0}, ui->label_30},
 		{{0, 1}, ui->label_01}, {{1, 1}, ui->label_11}, {{2, 1}, ui->label_21}, {{3, 1}, ui->label_31},
@@ -24,30 +35,33 @@ MainWindow::MainWindow(QWidget *parent)
 
 	for (const auto& [pos, label] : this->labels)
 	{
-		label->setFixedSize(150, 100);
+		label->setFixedSize(170, 100);
 	}
 
-	this->cur_state = { { 0, 4 }, { 3, 0 }, { 2, 2 } };
-	this->rlTest = new rl(grid, 4, 5);
-	this->rlTest->clearState_Values();
-
-	this->rlTest->runValueIteration();
-	this->rlTest->runPolicyIteration();
+	this->cur_state = { { 0, 4 }, { 3, 0 } };
+	this->mdpObject = new mdp(grid, width, height, { 2, 2 });
+	this->rlObject = new rl(this->mdpObject);
+	
+	this->rlObject->runValueIteration();
+	this->rlObject->runPolicyIteration();
 
 	display_board(this->cur_state);
-
-	//this->rlTest->test(); 
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
-	delete this->rlTest;
+	delete this->rlObject;
+	delete this->mdpObject;
 }
 
 void MainWindow::display_board(const state_t& state) const
 {
-	QPalette palette = this->ui->label_00->palette();
+	QPalette palette = this->ui->centralwidget->palette();
+	palette.setColor(this->ui->centralwidget->backgroundRole(), Qt::black);
+	this->ui->centralwidget->setPalette(palette);
+	
+	palette = this->ui->label_00->palette();
 	for (const auto& [pos, label] : this->labels)
 	{
 		if (this->grid.at(pos) == -100)
@@ -62,8 +76,8 @@ void MainWindow::display_board(const state_t& state) const
 		}
 
 		label->setPixmap(QPixmap());
-
-		if (pos == state.coin)
+		
+		if (pos == this->mdpObject->coin)
 		{
 			QString filename = "coin.png";
 			QPixmap pix;
@@ -98,34 +112,48 @@ void MainWindow::display_board(const state_t& state) const
 
 void MainWindow::keyPressEvent(QKeyEvent* event)
 {
-	std::string action;
 	switch (event->key())
 	{
 	case Qt::Key_Down:
 		{
-			if (this->rlTest->isAvailable(cur_state.ghost, "south")) cur_state.ghost.second += 1;
+			if (this->mdpObject->isAvailable(this->cur_state.ghost, SOUTH)) this->cur_state.ghost.second += 1;
 			break;
 		}
 	case Qt::Key_Up:
 		{
-			if (this->rlTest->isAvailable(cur_state.ghost, "north")) cur_state.ghost.second -= 1;
+			if (this->mdpObject->isAvailable(this->cur_state.ghost, NORTH)) this->cur_state.ghost.second -= 1;
 			break;
 		}
 	case Qt::Key_Left:
 		{
-			if (this->rlTest->isAvailable(cur_state.ghost, "west")) cur_state.ghost.first -= 1;
+			if (this->mdpObject->isAvailable(this->cur_state.ghost, WEST)) this->cur_state.ghost.first -= 1;
 			break;
 		}
 	case Qt::Key_Right:
 		{
-			if (this->rlTest->isAvailable(cur_state.ghost, "east")) cur_state.ghost.first += 1;
+			if (this->mdpObject->isAvailable(this->cur_state.ghost, EAST)) this->cur_state.ghost.first += 1;
 		}
 	}
+
 	display_board(this->cur_state);
-	action = this->rlTest->getBestPolicy(cur_state);
-	if (action == "stop") return;
-	if (action == "north") cur_state.player.second -= 1;
-	if (action == "south") cur_state.player.second += 1;
-	if (action == "east") cur_state.player.first += 1;
-	if (action == "west") cur_state.player.first -= 1;
+
+	action_t action = this->rlObject->getBestPolicy(this->cur_state);
+	switch (action)
+	{
+	case NORTH:
+		this->cur_state.player.second -= 1;
+		break;
+	case SOUTH:
+		this->cur_state.player.second += 1;
+		break;
+	case EAST:
+		this->cur_state.player.first += 1;
+		break;
+	case WEST:
+		this->cur_state.player.first -= 1;
+	}
+
+	display_board(this->cur_state);
+
+	if (this->mdpObject->isTerminal(this->cur_state)) QApplication::quit();
 }

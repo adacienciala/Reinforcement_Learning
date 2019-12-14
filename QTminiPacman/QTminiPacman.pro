@@ -23,6 +23,7 @@ SOURCES += \
 
 HEADERS += \
     MainWindow.h \
+    mdp.h \
     rl.h
 
 FORMS += \
