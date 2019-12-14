@@ -3,13 +3,13 @@
 
 #include "rl.h"
 
-rl::rl(const std::map<std::pair<int, int>, int>& reward, int width, int height)
+rl::rl(const std::map<std::pair<int, int>, int>& grid, int width, int height)
 {
 	this->height = height;
 	this->width = width;
-	this->rewards = reward;
+	this->grid = grid;
 	this->gamma = 0.9f;
-	this->iterations = 0;
+	this->iterations = 100;
 	this->forbVal = -100;
 
 	clearState_Values();
@@ -70,30 +70,22 @@ std::vector<state_t> rl::getAllStates() const
 	// if there's no states, returns an empty vector
 	// otherwise returns a vector of pairs with coordinates (x, y)
 
-	if (this->rewards.empty()) return std::vector<state_t>();
+	if (this->grid.empty()) return std::vector<state_t>();
 	
 	std::vector<state_t> allStates;
-
-	for (const auto& state : this->rewards)
+	
+	for (const auto& state_player : this->grid)
 	{
-		// don't care about the first 2 parameters, just looking for the coin
-		if (isTerminal({ {-1, -1}, {-2, -2}, state.first }))
+		for (const auto& state_ghost : this->grid)
 		{
-			std::pair<int, int> coin = state.first;
-			for (const auto& state_player : this->rewards)
+			if (state_player.second != this->forbVal && state_ghost.second != this->forbVal)
 			{
-				for (const auto& state_ghost : this->rewards)
-				{
-					if (state_player.second != this->forbVal && state_ghost.second != this->forbVal)
-					{
-						state_t tempState = { state_player.first, state_ghost.first, coin };
-						allStates.push_back(tempState);
-					}
-				}
+				state_t tempState = { state_player.first, state_ghost.first, this->coin };
+				allStates.push_back(tempState);
 			}
-			return allStates;
 		}
 	}
+	return allStates;
 
 	return std::vector<state_t>();
 };
@@ -102,7 +94,7 @@ std::vector<std::string> rl::getPossibleActions(const state_t& state) const
 {
 	// iterates for a given state in the vector and gets all the possible actions from that state
 	// if there's no possible actions, returns an empty vector
-	// otherwise returns a vector of strings (you  can request actions into walls)
+	// otherwise returns a vector of strings (you can request actions into walls)
 
 	const auto& allStates = getAllStates();
 	/*auto it = allStates.begin();
@@ -152,19 +144,19 @@ bool rl::isAvailable(const std::pair<int, int>& coordinate, const std::string& a
 
 	if (action == "north")
 	{
-		if (coordinate.second - 1 < 0 || this->rewards.at(std::make_pair(coordinate.first, coordinate.second - 1)) == this->forbVal) return 0;
+		if (coordinate.second - 1 < 0 || this->grid.at(std::make_pair(coordinate.first, coordinate.second - 1)) == this->forbVal) return 0;
 	}
 	else if (action == "south")
 	{
-		if (coordinate.second + 1 >= this->height || this->rewards.at(std::make_pair(coordinate.first, coordinate.second + 1)) == this->forbVal) return 0;
+		if (coordinate.second + 1 >= this->height || this->grid.at(std::make_pair(coordinate.first, coordinate.second + 1)) == this->forbVal) return 0;
 	}
 	else if (action == "west")
 	{
-		if (coordinate.first - 1 < 0 || this->rewards.at(std::make_pair(coordinate.first - 1, coordinate.second)) == this->forbVal) return 0;
+		if (coordinate.first - 1 < 0 || this->grid.at(std::make_pair(coordinate.first - 1, coordinate.second)) == this->forbVal) return 0;
 	}
 	else
 	{
-		if (coordinate.first + 1 >= this->width || this->rewards.at(std::make_pair(coordinate.first + 1, coordinate.second)) == this->forbVal) return 0;
+		if (coordinate.first + 1 >= this->width || this->grid.at(std::make_pair(coordinate.first + 1, coordinate.second)) == this->forbVal) return 0;
 	}
 
 	return 1;
@@ -175,7 +167,7 @@ bool rl::isTerminal(const state_t& state) const
 	// returns 1 if the state is terminal (there's a reward)
 	// otherwise returns 0
 
-	if (this->rewards.at(state.player) == 10 || state.player == state.ghost) return 1;
+	if (getReward(state)) return 1;
 	else return 0;
 };
 
@@ -185,7 +177,7 @@ std::map<std::pair<std::string, state_t>, float> rl::getTransitions(const state_
 	// if terminal state or unknown state, returns an empty vector
 	// otherwise returns a map of pairs {action, nextState(x, y)} with probabilities 
 
-	if (isTerminal(state)) return std::map<std::pair<std::string, state_t>, float>();
+	if (isTerminal(state) || isAvailable(state.player, action) == 0) return std::map<std::pair<std::string, state_t>, float>();
 	const auto& allStates = getAllStates();
 	auto it = allStates.begin();
 	for (; it < allStates.end(); ++it)
@@ -226,7 +218,7 @@ std::map<std::pair<std::string, state_t>, float> rl::getTransitions(const state_
 	std::pair<int, int> eastGhost = !isAvailable(state.ghost, "east") ? state.ghost : std::make_pair(state.ghost.first + 1, state.ghost.second);
 	std::pair<int, int> westGhost = !isAvailable(state.ghost, "west") ? state.ghost : std::make_pair(state.ghost.first - 1, state.ghost.second);
 
-	std::vector<std::pair<int, int>> tempGhost;
+	std::vector<std::pair<int, int>> tempGhost = { northGhost, southGhost, eastGhost, westGhost };
 
 	// sorting and deleting the duplicates
 	std::sort(tempGhost.begin(), tempGhost.end());
@@ -241,18 +233,13 @@ std::map<std::pair<std::string, state_t>, float> rl::getTransitions(const state_
 	return transitions;
 };
 
-int rl::getReward(const state_t& state)
+int rl::getReward(const state_t& state) const
 {
 	// returns reward for the given state
 	// if wrong data, returns 0
 
-	const auto allStates = getAllStates();
-	if (allStates.empty()) return 0;
-
-	for (const auto& curState : allStates)
-	{
-		if (curState.player == state.player && curState.ghost == state.ghost) return this->rewards[curState.player];
-	}
+	if (state.player == state.ghost) return -10;
+	if (state.player == state.coin) return 10;
 	
 	return 0;
 };
@@ -269,7 +256,7 @@ float rl::computeQValue(const state_t& state, const std::string& action)
 	for (const auto& it : transitions)
 	{
 		prev_value = this->state_values[it.first.second];
-		value += it.second * (this->rewards[state.player] + (this->gamma * prev_value));
+		value += it.second * (getReward(state) + (this->gamma * prev_value));
 	}
 
 	return value;
@@ -298,33 +285,55 @@ void rl::runValueIteration()
 					max = QVal;
 				}
 			}
-			if (isTerminal(state)) max = getReward(state);
+			if (isTerminal(state)) max = (float)getReward(state);
 			new_state_values[state] = max;
 		}
 		this->state_values = new_state_values;
 	}
 }
 
-//kiedy to kompilowalas ostanio?
-// :v
-//....
-//Chyba fantazja Ciê ponios³a z tym kluczem do mapy, przynajmniej moja diagno
-//WNIOSKI: 
-//Jak dzia³a mapa?
-//Kompilator musi umieæ policzyæ hasha z klucza. Dopóki klucz jest prosty, to spoko. Podstawowe typy ogarnia, stringi ogarnia,
-//czêœæ wbudowanych, takich jak pary, takze (chocia¿ to doœæ skomplikowane, bo nie zna typów w parze, nie?)
-//W tym mapach poszala³aœ. I to grubo doœæ xD Nie mo¿esz tak skomplikowanych typów dawaæ jako klucze, bo siê wysra.
-//Okej, mozesz, ale wtedy musisz podopisywaæ metody std::less i resztê. (niee, nie chcesz tego robic).
-//Rozwiazanie? Uproœciæ klucze w mapach. Bo nie dasz rady tego ogarnac inaczej. No i kwestia, ¿e nawet gdybys dopisa³a tego std::less'a
-//To to rozwiazanie bêdzie wydajne jak ¿ó³w stepowy. 
-//Czêœciej kompiluj tak¿e :3
+void rl::runPolicyIteration()
+{
+	// runs over all the states and finds the best policy for each of them
+	// saves the best actions as a map <state_t, string>
+	
+	std::map<state_t, std::string> new_state_policies;
 
-// k 
-//:V
-// nie bawi mnie to :V
-//Domyslam siê :V
-// :V
+	float QVal = 0, max = 0;
+	std::string best_action = "stop";
 
+	for (int i = 0; i < this->iterations; ++i)
+	{
+		std::vector<state_t> allStates = getAllStates();
+		for (const auto& state : allStates)
+		{
+			std::vector<std::string> possibleActions = getPossibleActions(state);
+			for (const auto& action : possibleActions)
+			{
+				QVal = computeQValue(state, action);
+				if (action == possibleActions[0] || QVal > max)
+				{
+					max = QVal;
+					best_action = action;
+				}
+			}
+			if (isTerminal(state))
+			{
+				max = (float)getReward(state);
+				best_action = "stop";
+			}
+			new_state_policies[state] = best_action;
+		}
+		this->state_policies = new_state_policies;
+	}
+}
+
+std::string rl::getBestPolicy(const state_t& state) const
+{
+	// returns the best action from the given state
+
+	return this->state_policies.at(state);
+}
 
 void rl::clearState_Values()
 {
