@@ -81,30 +81,27 @@ void rl::runPolicyIteration()
 	float QVal = 0, max = 0;
 	action_t best_action = STAY;
 
-	for (int i = 0; i < this->iterations; ++i)
+	std::vector<state_t> allStates = this->environment->getAllStates();
+	for (const auto& state : allStates)
 	{
-		std::vector<state_t> allStates = this->environment->getAllStates();
-		for (const auto& state : allStates)
+		std::vector<action_t> possibleActions = this->environment->getPossibleActions(state);
+		for (const auto& action : possibleActions)
 		{
-			std::vector<action_t> possibleActions = this->environment->getPossibleActions(state);
-			for (const auto& action : possibleActions)
+			QVal = computeQValue(state, action);
+			if (action == possibleActions[0] || QVal > max)
 			{
-				QVal = computeQValue(state, action);
-				if (action == possibleActions[0] || QVal > max)
-				{
-					max = QVal;
-					best_action = action;
-				}
+				max = QVal;
+				best_action = action;
 			}
-			if (this->environment->isTerminal(state))
-			{
-				max = (float)this->environment->getReward(state);
-				best_action = STAY;
-			}
-			new_state_policies[state] = best_action;
 		}
-		this->state_policies = new_state_policies;
+		if (this->environment->isTerminal(state))
+		{
+			max = (float)this->environment->getReward(state);
+			best_action = STAY;
+		}
+		new_state_policies[state] = best_action;
 	}
+	this->state_policies = new_state_policies;
 }
 
 action_t rl::getBestPolicy(const state_t& state) const

@@ -10,6 +10,7 @@ struct state_t
 {
 	std::pair<int, int> player;
 	std::pair<int, int> ghost;
+	std::pair<int, int> coin;
 
 	bool operator< (const state_t& a) const
 	{
@@ -23,6 +24,14 @@ struct state_t
 				if (this->ghost.first == a.ghost.first)
 				{
 					if (this->ghost.second < a.ghost.second) return true;
+					if (this->ghost.second == a.ghost.second)
+					{
+						if (this->coin.first < a.coin.first) return true;
+						if (this->coin.first == a.coin.first)
+						{
+							if (this->coin.second < a.coin.second) return true;
+						}
+					}
 				}
 			}
 		}
@@ -44,8 +53,7 @@ public:
 
 	int width;
 	int height;
-	mdp(const std::map<std::pair<int, int>, int>& grid, int width, int height, std::pair<int, int> coin);
-	std::pair<int, int> coin;
+	mdp(const std::map<std::pair<int, int>, int>& grid, int width, int height);
 	std::vector<state_t> getAllStates() const;
 	std::vector<action_t> getPossibleActions(const state_t& state) const;
 	std::vector<state_t> getNextStates(const state_t& state, action_t action) const;

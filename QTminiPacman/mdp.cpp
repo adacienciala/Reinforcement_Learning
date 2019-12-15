@@ -1,14 +1,13 @@
 #include <algorithm>
 #include "mdp.h"
 
-mdp::mdp(const std::map<std::pair<int, int>, int>& grid, int width, int height, std::pair<int, int> coin)
+mdp::mdp(const std::map<std::pair<int, int>, int>& grid, int width, int height)
 {
 	this->height = height;
 	this->width = width;
 	this->grid = grid;
 	this->gamma = 0.9f;
 	this->forbVal = -100;
-	this->coin = coin;
 }
 
 std::vector<state_t> mdp::getAllStates() const
@@ -20,15 +19,17 @@ std::vector<state_t> mdp::getAllStates() const
 	if (this->grid.empty()) return std::vector<state_t>();
 
 	std::vector<state_t> allStates;
-
-	for (const auto& state_player : this->grid)
+	for (const auto& state_coin : this->grid)
 	{
-		for (const auto& state_ghost : this->grid)
+		for (const auto& state_player : this->grid)
 		{
-			if (state_player.second != this->forbVal && state_ghost.second != this->forbVal)
+			for (const auto& state_ghost : this->grid)
 			{
-				state_t tempState = { state_player.first, state_ghost.first };
-				allStates.push_back(tempState);
+				if (state_player.second != this->forbVal && state_ghost.second != this->forbVal && state_coin.second != this->forbVal)
+				{
+					state_t tempState = { state_player.first, state_ghost.first, state_coin.first };
+					allStates.push_back(tempState);
+				}
 			}
 		}
 	}
@@ -177,7 +178,7 @@ int mdp::getReward(const state_t& state) const
 	// if wrong data, returns 0
 
 	if (state.player == state.ghost) return -10;
-	if (state.player == this->coin) return 10;
+	if (state.player == state.coin) return 10;
 
 	return 0;
 }

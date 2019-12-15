@@ -44,11 +44,14 @@ MainWindow::MainWindow(QWidget *parent)
 		//label->setFixedSize(100, 100);
 	}
 
-	this->cur_state = { { 0, 4 }, { 3, 0 } };
-	this->mdpObject = new mdp(grid, width, height, { 2, 2 });
+	this->cur_state = { { 0, 4 }, { 3, 0 }, {2, 2} };
+
+	this->mdpObject = new mdp(grid, width, height);
 	this->rlObject = new rl(this->mdpObject);
 	
+	qDebug() << "VALUE ON\n";
 	this->rlObject->runValueIteration();
+	qDebug() << "VALUE DONE\n";
 	this->rlObject->runPolicyIteration();
 
 	myTimer = new QTimer(this);
@@ -77,7 +80,7 @@ void MainWindow::display_board(const state_t& state) const
 	{
 		label->setPixmap(QPixmap());
 		
-		if (pos == this->mdpObject->coin)
+		if (pos == state.coin)
 		{
 			QString filename = "coin.png";
 			QPixmap pix;
@@ -125,15 +128,15 @@ void MainWindow::loop()
 	case WEST:
 		this->cur_state.player.first -= 1;
 	}
+	this->cur_state.ghost = newGhost;
 	display_board(this->cur_state);
 
 	if (this->mdpObject->isTerminal(this->cur_state))
 	{
-		display_board(this->cur_state);
-		qDebug() << "TERMINAL";
-		if (this->cur_state.player == this->mdpObject->coin)
+		qDebug() << "TERMINAL\n";
+		if (this->cur_state.player == this->cur_state.coin)
 		{
-			qDebug() << "ZJADLO COINA";
+			qDebug() << "ZJADLO COINA\n";
 			int free_coords = 0;
 			for (const auto& [pos, val] : this->grid)
 			{
@@ -152,18 +155,13 @@ void MainWindow::loop()
 				if (val != -100) random -= 1;
 			}
 
-			this->mdpObject->coin = new_coin;
-			qDebug() << "NEW COIN";
-			this->rlObject->runValueIteration();
-			qDebug() << "VALUE DONE";
+			this->cur_state.coin = new_coin;
+			qDebug() << "NEW COIN\n";
 			this->rlObject->runPolicyIteration();
-			qDebug() << "POLICY DONE";
+			qDebug() << "POLICY DONE\n";
 		}
 		else QApplication::quit();
 	}
-
-	this->cur_state.ghost = newGhost;
-	display_board(this->cur_state);
 }
 
 void MainWindow::keyPressEvent(QKeyEvent* event)
