@@ -1,11 +1,14 @@
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
+#include <Windows.h>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+	srand(time(NULL));
 
 	this->grid = {
 		{{0, 0}, 0 }, {{1, 0}, 0 }, {{2, 0}, 0 }, {{3, 0}, 0 },
@@ -35,7 +38,8 @@ MainWindow::MainWindow(QWidget *parent)
 
 	for (const auto& [pos, label] : this->labels)
 	{
-		label->setFixedSize(170, 100);
+		label->setGeometry(QRect(x(), y(), 100, 100));
+		//label->setFixedSize(100, 100);
 	}
 
 	this->cur_state = { { 0, 4 }, { 3, 0 } };
@@ -45,6 +49,11 @@ MainWindow::MainWindow(QWidget *parent)
 	this->rlObject->runValueIteration();
 	this->rlObject->runPolicyIteration();
 
+	myTimer = new QTimer(this);
+	connect(myTimer, &QTimer::timeout, this, &MainWindow::loop);
+	myTimer->start(400);
+	qsrand(QTime::currentTime().msec());
+
 	display_board(this->cur_state);
 }
 
@@ -53,6 +62,7 @@ MainWindow::~MainWindow()
     delete ui;
 	delete this->rlObject;
 	delete this->mdpObject;
+	delete this->myTimer;
 }
 
 void MainWindow::display_board(const state_t& state) const
@@ -61,20 +71,8 @@ void MainWindow::display_board(const state_t& state) const
 	palette.setColor(this->ui->centralwidget->backgroundRole(), Qt::black);
 	this->ui->centralwidget->setPalette(palette);
 	
-	palette = this->ui->label_00->palette();
 	for (const auto& [pos, label] : this->labels)
 	{
-		if (this->grid.at(pos) == -100)
-		{
-			palette.setColor(label->backgroundRole(), QColor(0, 0, 102, 255));
-			label->setPalette(palette);
-		}
-		else
-		{
-			palette.setColor(label->backgroundRole(), Qt::black);
-			label->setPalette(palette);
-		}
-
 		label->setPixmap(QPixmap());
 		
 		if (pos == this->mdpObject->coin)
@@ -83,8 +81,7 @@ void MainWindow::display_board(const state_t& state) const
 			QPixmap pix;
 			if (pix.load(filename))
 			{
-				pix.scaled(label->size(), Qt::KeepAspectRatio);
-				label->setPixmap(pix);
+				label->setPixmap(pix.scaled(label->size(), Qt::KeepAspectRatio));
 			}
 		}
 		if (pos == state.player)
@@ -93,8 +90,7 @@ void MainWindow::display_board(const state_t& state) const
 			QPixmap pix;
 			if (pix.load(filename))
 			{
-				pix.scaled(label->size(), Qt::KeepAspectRatio);
-				label->setPixmap(pix);
+				label->setPixmap(pix.scaled(label->size(), Qt::KeepAspectRatio));
 			}
 		}
 		if (pos == state.ghost)
@@ -103,15 +99,88 @@ void MainWindow::display_board(const state_t& state) const
 			QPixmap pix;
 			if (pix.load(filename))
 			{
-				pix.scaled(label->size(), Qt::KeepAspectRatio);
-				label->setPixmap(pix);
+				label->setPixmap(pix.scaled(label->size(), Qt::KeepAspectRatio));
 			}
 		}
 	}
 }
 
+void MainWindow::loop()
+{
+	action_t action = this->rlObject->getBestPolicy(this->cur_state);
+	const auto& newGhost = this->randomMoveGhost(action);
+	switch (action)
+	{
+	case NORTH:
+		this->cur_state.player.second -= 1;
+		break;
+	case SOUTH:
+		this->cur_state.player.second += 1;
+		break;
+	case EAST:
+		this->cur_state.player.first += 1;
+		break;
+	case WEST:
+		this->cur_state.player.first -= 1;
+	}
+	display_board(this->cur_state);
+
+	if (this->mdpObject->isTerminal(this->cur_state))
+	{
+		if (this->cur_state.player == this->mdpObject->coin)
+		{
+			int free_coords = 0;
+			for (const auto& [pos, val] : this->grid)
+			{
+				if (val != -100) free_coords += 1;
+			}
+			int random = rand() % free_coords;
+
+			std::pair<int, int> new_coin;
+			for (const auto& [pos, val] : this->grid)
+			{
+				if (random == 0)
+				{
+					new_coin = pos;
+					break;
+				}
+				if (val != -100) random -= 1;
+			}
+
+			this->mdpObject->coin = new_coin;
+			this->rlObject->runValueIteration();
+			this->rlObject->runPolicyIteration();
+		}
+		else QApplication::quit();
+	}
+
+	this->cur_state.ghost = newGhost;
+	display_board(this->cur_state);
+}
+
 void MainWindow::keyPressEvent(QKeyEvent* event)
 {
+	action_t action = this->rlObject->getBestPolicy(this->cur_state);
+	const auto& newGhost = this->randomMoveGhost(action);
+	switch (action)
+	{
+	case NORTH:
+		this->cur_state.player.second -= 1;
+		break;
+	case SOUTH:
+		this->cur_state.player.second += 1;
+		break;
+	case EAST:
+		this->cur_state.player.first += 1;
+		break;
+	case WEST:
+		this->cur_state.player.first -= 1;
+	}
+
+	display_board(this->cur_state);
+
+	if (this->mdpObject->isTerminal(this->cur_state)) QApplication::quit();
+
 	switch (event->key())
 	{
 	case Qt::Key_Down:
@@ -133,27 +202,29 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
 		{
 			if (this->mdpObject->isAvailable(this->cur_state.ghost, EAST)) this->cur_state.ghost.first += 1;
 		}
+	default:
+		this->cur_state.ghost = newGhost;
 	}
 
 	display_board(this->cur_state);
+}
 
-	action_t action = this->rlObject->getBestPolicy(this->cur_state);
-	switch (action)
+std::pair<int, int> MainWindow::randomMoveGhost(action_t action)
+{
+	const auto& transitions = this->mdpObject->getTransitions(this->cur_state, action);
+
+	float random = rand() % 1000 / 1000.0;
+	std::pair<int, int> new_coords = this->cur_state.ghost;
+
+	for (const auto& [pair, prob] : transitions)
 	{
-	case NORTH:
-		this->cur_state.player.second -= 1;
-		break;
-	case SOUTH:
-		this->cur_state.player.second += 1;
-		break;
-	case EAST:
-		this->cur_state.player.first += 1;
-		break;
-	case WEST:
-		this->cur_state.player.first -= 1;
+		if (random < prob)
+		{
+			new_coords = pair.second.ghost;
+			break;
+		}
+		else random -= prob;
 	}
 
-	display_board(this->cur_state);
-
-	if (this->mdpObject->isTerminal(this->cur_state)) QApplication::quit();
+	return new_coords;
 }

@@ -37,14 +37,14 @@ private:
 
 	std::map<std::pair<int, int>, int> grid;
 	state_t cur_state;
-	int width;
-	int height;
 	float gamma;
 	int forbVal;
 	
 public:
-	mdp(const std::map<std::pair<int, int>, int>& grid, int width, int height, std::pair<int, int> coin);
 
+	int width;
+	int height;
+	mdp(const std::map<std::pair<int, int>, int>& grid, int width, int height, std::pair<int, int> coin);
 	std::pair<int, int> coin;
 	std::vector<state_t> getAllStates() const;
 	std::vector<action_t> getPossibleActions(const state_t& state) const;

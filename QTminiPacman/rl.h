@@ -23,6 +23,7 @@ public:
 	rl(mdp* environment);
 	float computeQValue(const state_t& state, const action_t& action);
 	void runValueIteration();
+	void clearStateValues();
 	void runPolicyIteration();
 	action_t getBestPolicy(const state_t& state) const;
 

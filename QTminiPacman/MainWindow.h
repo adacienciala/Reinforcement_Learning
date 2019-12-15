@@ -4,6 +4,8 @@
 #include <QMainWindow>
 #include <QLabel>
 #include <QkeyEvent>
+#include <QTimer>
+#include <QTime>
 #include "rl.h"
 
 QT_BEGIN_NAMESPACE
@@ -20,6 +22,7 @@ private:
 	std::map<std::pair<int, int>, int> grid;
 	std::map<std::pair<int, int>, QLabel *> labels;
 	state_t cur_state;
+	QTimer* myTimer;
 
 public:
 
@@ -29,6 +32,11 @@ public:
 	mdp* mdpObject;
 	void display_board(const state_t& state) const;
 	void keyPressEvent(QKeyEvent* event);
+	std::pair<int, int> randomMoveGhost(action_t action);
+
+private slots:
+
+	void MainWindow::loop();
 
 };
 #endif // MAINWINDOW_H

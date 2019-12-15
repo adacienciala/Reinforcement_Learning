@@ -35,6 +35,7 @@ void rl::runValueIteration()
 	// for each state finds maximum QValue
 	// saves the best actions as a map <state_t, float>
 
+	clearStateValues();
 	std::map<state_t, float> new_state_values;
 
 	float QVal = 0, max = 0;
@@ -57,6 +58,15 @@ void rl::runValueIteration()
 			new_state_values[state] = max;
 		}
 		this->state_values = new_state_values;
+	}
+}
+
+void rl::clearStateValues()
+{
+	const auto allStates = this->environment->getAllStates();
+	for (auto& state : allStates)
+	{
+		this->state_values[state] = 0.0;
 	}
 }
 
