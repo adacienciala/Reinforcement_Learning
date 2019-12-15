@@ -2,6 +2,8 @@
 #include "ui_MainWindow.h"
 #include <Windows.h>
 
+#include <QDebug>
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -51,7 +53,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 	myTimer = new QTimer(this);
 	connect(myTimer, &QTimer::timeout, this, &MainWindow::loop);
-	myTimer->start(400);
+	myTimer->start(300);
 	qsrand(QTime::currentTime().msec());
 
 	display_board(this->cur_state);
@@ -127,8 +129,11 @@ void MainWindow::loop()
 
 	if (this->mdpObject->isTerminal(this->cur_state))
 	{
+		display_board(this->cur_state);
+		qDebug() << "TERMINAL";
 		if (this->cur_state.player == this->mdpObject->coin)
 		{
+			qDebug() << "ZJADLO COINA";
 			int free_coords = 0;
 			for (const auto& [pos, val] : this->grid)
 			{
@@ -139,7 +144,7 @@ void MainWindow::loop()
 			std::pair<int, int> new_coin;
 			for (const auto& [pos, val] : this->grid)
 			{
-				if (random == 0)
+				if (random == 0 && val != -100)
 				{
 					new_coin = pos;
 					break;
@@ -148,8 +153,11 @@ void MainWindow::loop()
 			}
 
 			this->mdpObject->coin = new_coin;
+			qDebug() << "NEW COIN";
 			this->rlObject->runValueIteration();
+			qDebug() << "VALUE DONE";
 			this->rlObject->runPolicyIteration();
+			qDebug() << "POLICY DONE";
 		}
 		else QApplication::quit();
 	}
