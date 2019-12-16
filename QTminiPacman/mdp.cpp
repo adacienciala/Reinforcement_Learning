@@ -132,7 +132,7 @@ std::map<std::pair<action_t, state_t>, float> mdp::getTransitions(const state_t&
 
 	for (const auto& moveGhost : tempGhost)
 	{
-		std::pair<action_t, state_t> tempPair = { action, { tempPlayer, moveGhost } };
+		std::pair<action_t, state_t> tempPair = { action, { tempPlayer, moveGhost, state.coin } };
 		transitions[tempPair] = 1.0f / tempGhost.size();
 	}
 

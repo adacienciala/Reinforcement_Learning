@@ -59,6 +59,13 @@ void rl::runValueIteration()
 		}
 		this->state_values = new_state_values;
 	}
+	FILE* fp;
+	fp = fopen("values.txt", "w");
+	for (const auto& state : this->state_values)
+	{
+		fprintf(fp, "player: (%d, %d), ghost: (%d, %d), coin: (%d, %d) - %f\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second, state.second);
+	}
+	fclose(fp);
 }
 
 void rl::clearStateValues()
@@ -102,6 +109,13 @@ void rl::runPolicyIteration()
 		new_state_policies[state] = best_action;
 	}
 	this->state_policies = new_state_policies;
+	FILE* fp;
+	fp = fopen("policies.txt", "w");
+	for (const auto& state : this->state_policies)
+	{
+		fprintf(fp, "player: (%d, %d), ghost: (%d, %d), coin: (%d, %d) - %d\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second, state.second);
+	}
+	fclose(fp);
 }
 
 action_t rl::getBestPolicy(const state_t& state) const
