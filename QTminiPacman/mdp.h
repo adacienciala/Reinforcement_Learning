@@ -62,5 +62,7 @@ public:
 	bool isAvailable(const std::pair<int, int>& coordinate, action_t action) const;
 	int getReward(const state_t& state) const;
 
+	std::vector<action_t> getPossibleActionsQLearning(const std::pair<int, int>& coords) const;
+
 };
 

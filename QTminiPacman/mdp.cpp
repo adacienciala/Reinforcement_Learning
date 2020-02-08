@@ -46,7 +46,7 @@ std::vector<action_t> mdp::getPossibleActions(const state_t& state) const
 	
 	const auto searchingState = std::find_if(allStates.begin(), allStates.end(), [state](const state_t& currentState)
 		{
-			return (currentState.player == state.player && currentState.ghost == state.ghost);
+			return (currentState.player == state.player && currentState.ghost == state.ghost && currentState.coin == state.coin);
 		});
 
 	if (searchingState != allStates.end())
@@ -90,7 +90,7 @@ std::map<std::pair<action_t, state_t>, float> mdp::getTransitions(const state_t&
 	auto it = allStates.begin();
 	for (; it < allStates.end(); ++it)
 	{
-		if (it->player == state.player && it->ghost == state.ghost) break;
+		if (it->player == state.player && it->ghost == state.ghost && it->coin == state.coin) break;
 	}
 	if (it == allStates.end()) return std::map<std::pair<action_t, state_t>, float>();
 
@@ -181,4 +181,21 @@ int mdp::getReward(const state_t& state) const
 	if (state.player == state.coin) return 10;
 
 	return 0;
+}
+
+std::vector<action_t> mdp::getPossibleActionsQLearning(const std::pair<int, int>& coords) const
+{
+	// returns possible actions - not into walls
+
+	std::vector<action_t> possibleActions = std::vector<action_t>();
+
+	for (auto& action : { NORTH, EAST, SOUTH, WEST, STAY })
+	{
+		if (this->isAvailable(coords, action) == true)
+		{
+			possibleActions.push_back(action);
+		}
+	}
+
+	return possibleActions;
 }

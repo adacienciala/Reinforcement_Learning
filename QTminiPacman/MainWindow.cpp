@@ -41,7 +41,6 @@ MainWindow::MainWindow(QWidget *parent)
 	for (const auto& [pos, label] : this->labels)
 	{
 		label->setGeometry(QRect(x(), y(), 100, 100));
-		//label->setFixedSize(100, 100);
 	}
 
 	this->cur_state = { { 0, 4 }, { 3, 0 }, {2, 2} };
@@ -49,17 +48,25 @@ MainWindow::MainWindow(QWidget *parent)
 	this->mdpObject = new mdp(grid, width, height);
 	this->rlObject = new rl(this->mdpObject);
 	
-	qDebug() << "VALUE ON\n";
-	this->rlObject->runValueIteration();
-	qDebug() << "VALUE DONE\n";
-	this->rlObject->runPolicyIteration();
 
-	myTimer = new QTimer(this);
-	connect(myTimer, &QTimer::timeout, this, &MainWindow::loop);
-	myTimer->start(300);
-	qsrand(QTime::currentTime().msec());
+	if (true)
+	{
+		qDebug() << "VALUE ON\n";
+		this->rlObject->runValueIteration();
+		qDebug() << "VALUE DONE\n";
+		this->rlObject->runPolicyIteration();
 
-	display_board(this->cur_state);
+		myTimer = new QTimer(this);
+		connect(myTimer, &QTimer::timeout, this, &MainWindow::loop);
+		myTimer->start(300);
+		qsrand(QTime::currentTime().msec());
+
+		display_board(this->cur_state);
+	}
+	else
+	{
+		this->rlObject->runQLearning(this->cur_state);
+	}
 }
 
 MainWindow::~MainWindow()
@@ -157,10 +164,12 @@ void MainWindow::loop()
 
 			this->cur_state.coin = new_coin;
 			qDebug() << "NEW COIN\n";
-			this->rlObject->runPolicyIteration();
-			qDebug() << "POLICY DONE\n";
 		}
-		else QApplication::quit();
+		else
+		{
+			qDebug() << "ZJADLO GO\n";
+			QApplication::quit();
+		}
 	}
 }
 
