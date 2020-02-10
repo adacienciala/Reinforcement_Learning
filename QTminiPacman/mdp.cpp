@@ -199,3 +199,48 @@ std::vector<action_t> mdp::getPossibleActionsQLearning(const std::pair<int, int>
 
 	return possibleActions;
 }
+
+std::tuple<state_t, int, bool> mdp::makeQStep(const state_t& cur_state, const action_t& actionPlayer, const action_t& actionGhost) const
+{
+	// makes a QLearning step
+	// returns the next_state, reward for the state and if it's terminal
+
+	state_t next_state = cur_state;
+
+	switch (actionPlayer)
+	{
+	case NORTH:
+		next_state.player.second -= 1;
+		break;
+	case SOUTH:
+		next_state.player.second += 1;
+		break;
+	case EAST:
+		next_state.player.first += 1;
+		break;
+	case WEST:
+		next_state.player.first -= 1;
+		break;
+	}
+
+	switch (actionGhost)
+	{
+	case NORTH:
+		next_state.ghost.second -= 1;
+		break;
+	case SOUTH:
+		next_state.ghost.second += 1;
+		break;
+	case EAST:
+		next_state.ghost.first += 1;
+		break;
+	case WEST:
+		next_state.ghost.first -= 1;
+		break;
+	}
+
+	int reward = getReward(next_state);
+	bool is_terminal = isTerminal(next_state);
+
+	return std::make_tuple(next_state, reward, is_terminal);
+}

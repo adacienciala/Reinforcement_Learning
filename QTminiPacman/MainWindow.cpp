@@ -49,7 +49,7 @@ MainWindow::MainWindow(QWidget *parent)
 	this->rlObject = new rl(this->mdpObject);
 	
 
-	if (true)
+	if (false)
 	{
 		qDebug() << "VALUE ON\n";
 		this->rlObject->runValueIteration();
@@ -57,7 +57,7 @@ MainWindow::MainWindow(QWidget *parent)
 		this->rlObject->runPolicyIteration();
 
 		myTimer = new QTimer(this);
-		connect(myTimer, &QTimer::timeout, this, &MainWindow::loop);
+		connect(myTimer, &QTimer::timeout, this, &MainWindow::loopValue);
 		myTimer->start(300);
 		qsrand(QTime::currentTime().msec());
 
@@ -65,7 +65,12 @@ MainWindow::MainWindow(QWidget *parent)
 	}
 	else
 	{
-		this->rlObject->runQLearning(this->cur_state);
+		myTimer = new QTimer(this);
+		connect(myTimer, &QTimer::timeout, this, &MainWindow::loopQLearning);
+		myTimer->start(1);
+		qsrand(QTime::currentTime().msec());
+
+		display_board(this->cur_state);
 	}
 }
 
@@ -117,7 +122,7 @@ void MainWindow::display_board(const state_t& state) const
 	}
 }
 
-void MainWindow::loop()
+void MainWindow::loopValue()
 {
 	action_t action = this->rlObject->getBestPolicy(this->cur_state);
 	const auto& newGhost = this->randomMoveGhost(action);
@@ -170,6 +175,39 @@ void MainWindow::loop()
 			qDebug() << "ZJADLO GO\n";
 			QApplication::quit();
 		}
+	}
+}
+
+void MainWindow::loopQLearning()
+{
+	static int episode = 0;
+	static state_t starting_state = this->cur_state;
+	this->display_board(this->cur_state);
+
+	if (episode < this->rlObject->episodes)
+	{
+		bool is_terminal = this->rlObject->stepQLearning(this->cur_state);
+		this->display_board(this->cur_state);
+		if (is_terminal == true)
+		{
+			++episode;
+			qDebug() << "TERMINAL -> EP." << episode;
+			this->cur_state = starting_state;
+			if (episode == this->rlObject->episodes-10) myTimer->start(300);
+			return;
+		}
+	}
+	else
+	{
+		qDebug() << "KONIEC NAUKI\n";
+		FILE* fp;
+		fp = fopen("Qvalues.txt", "w");
+		for (const auto& state : this->rlObject->state_values)
+		{
+			fprintf(fp, "player: (%d, %d), ghost: (%d, %d), coin: (%d, %d) - %f\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second, state.second);
+		}
+		fclose(fp);
+		QApplication::quit();
 	}
 }
 

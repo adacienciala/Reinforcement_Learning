@@ -11,7 +11,7 @@ rl::rl(mdp* environment)
 	this->environment = environment;
 	this->epsilon = 0.3f;
 	this->alpha = 0.5f;
-	this->episodes = 1000;
+	this->episodes = 4000;
 };
 
 float rl::computeQValue(const state_t& state, const action_t& action)
@@ -132,50 +132,22 @@ void rl::runQLearning(const state_t& starting_state)
 {
 	this->state_values.clear();
 
-	state_t starting_state = { { 0, 4 }, { 3, 0 }, {2, 2} };
-
 	float QVal;
 	for (int i = 0; i < this->episodes; ++i)
 	{
 		state_t state = starting_state;
-		state_t next_state = state;
-		while (this->environment->isTerminal(state) == 0)
+		state_t next_state;
+		int reward = 0;
+		bool is_terminal = false;
+		while (is_terminal == false)
 		{
-			action_t actionPlayer = getAction(state, true);
 			action_t actionGhost = getAction(state, false);
+			action_t actionPlayer = getAction(state, true);
 
-			switch (actionPlayer)
-			{
-			case NORTH:
-				next_state.player.second -= 1;
-				break;
-			case SOUTH:
-				next_state.player.second += 1;
-				break;
-			case EAST:
-				next_state.player.first += 1;
-				break;
-			case WEST:
-				next_state.player.first -= 1;
-				break;
-			}
-			switch (actionGhost)
-			{
-			case NORTH:
-				next_state.ghost.second -= 1;
-				break;
-			case SOUTH:
-				next_state.ghost.second += 1;
-				break;
-			case EAST:
-				next_state.ghost.first += 1;
-				break;
-			case WEST:
-				next_state.ghost.first -= 1;
-				break;
-			}
-			// stary stab + alfa * R nowego stanu + y* sprawdzam mozliwe akcje z nowego stanu i wtedy nextstate'y sa srednia w zaleznosci od ruchu ducha - stary stan
-			QVal = getQValue(state, actionPlayer) + this->alpha * (this->environment->getReward(next_state) + (this->delta * computeValFromQVal(next_state)) - getQValue(state, actionPlayer));
+			std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer, actionGhost);
+
+			// stary stan + alfa * R nowego stanu + y* sprawdzam mozliwe akcje z nowego stanu i wtedy nextstate'y sa srednia w zaleznosci od ruchu ducha - stary stan
+			QVal = getQValue(state, actionPlayer) + this->alpha * (reward + (this->delta * computeValFromQVal(next_state)) - getQValue(state, actionPlayer));
 			this->state_values[next_state] = QVal;
 			state = next_state;
 		}
@@ -184,9 +156,28 @@ void rl::runQLearning(const state_t& starting_state)
 	fp = fopen("Qvalues.txt", "w");
 	for (const auto& state : this->state_values)
 	{
-		fprintf(fp, "player: (%d, %d), ghost: (%d, %d), coin: (%d, %d) - %d\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second, state.second);
+		fprintf(fp, "player: (%d, %d), ghost: (%d, %d), coin: (%d, %d) - %f\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second, state.second);
 	}
 	fclose(fp);
+}
+
+bool rl::stepQLearning(state_t& state)
+{
+	state_t next_state;
+	int reward = 0;
+	bool is_terminal = false;
+
+	action_t actionGhost = getAction(state, false);
+	action_t actionPlayer = getAction(state, true);
+
+	std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer, actionGhost);
+
+	// stary stan + alfa * R nowego stanu + y* sprawdzam mozliwe akcje z nowego stanu i wtedy nextstate'y sa srednia w zaleznosci od ruchu ducha - stary stan
+	float QVal = getQValue(state, actionPlayer) + this->alpha * (reward + (this->delta * computeValFromQVal(next_state)) - getQValue(state, actionPlayer));
+	this->state_values[next_state] = QVal;
+	
+	state = next_state;
+	return is_terminal;
 }
 
 // done?
@@ -263,7 +254,7 @@ float rl::getQValue(const state_t& state, const action_t& action)
 		// dodaj do puli, z ktorej potem policzysz srednia
 		QVal += this->state_values.at(tempState);
 	}
-	return QVal / nextGhost.size; // na pewno zwroci floata? (C by pewno nie XD)
+	return QVal / nextGhost.size(); // na pewno zwroci floata? (C by pewno nie XD)
 }
 
 // done?
@@ -271,7 +262,7 @@ float rl::computeValFromQVal(const state_t& state)
 {
 	// searches for the given state
 	// gets values for all legal actions you can do from that state
-	// returns max of those values (or random of equal max ones)
+	// returns max of those values
 	// if the state is not found, appends the state and returns 0
 
 	auto searchedState = this->state_values.find(state);
@@ -279,36 +270,21 @@ float rl::computeValFromQVal(const state_t& state)
 	if (searchedState != this->state_values.end())
 	{
 		std::vector<float> values;
-		float QVal, max;
+		float QVal, max = 0;
 
 		std::vector<action_t> possibleActions = this->environment->getPossibleActionsQLearning(state.player);
-		if (possibleActions.empty) return 0.0f;
+		if (possibleActions.empty()) return 0.0f;
 
 		for (const auto& action : possibleActions)
 		{
 			QVal = getQValue(state, action);
-			values.push_back(QVal);
 			if (action == possibleActions[0] || QVal > max)
 			{
 				max = QVal;
 			}
 		}
 
-		int counter = 0;
-		for (const auto& val : values)
-		{
-			if (val == max) counter++;
-		}
-
-		int id = rand() % counter;
-		for (const auto& action : possibleActions)
-		{
-			QVal = getQValue(state, action);
-			if (QVal == max)
-			{
-				if (id-- == 0) return QVal;
-			}
-		}
+		return max;
 	}
 	else
 	{
@@ -333,7 +309,7 @@ action_t rl::computeActionFromQVal(const state_t& state)
 		float QVal, max;
 
 		std::vector<action_t> possibleActions = this->environment->getPossibleActionsQLearning(state.player);
-		if (possibleActions.empty) return STAY;
+		if (possibleActions.empty()) return STAY;
 
 		for (const auto& action : possibleActions)
 		{

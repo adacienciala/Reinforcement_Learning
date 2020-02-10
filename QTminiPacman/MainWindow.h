@@ -26,17 +26,19 @@ private:
 
 public:
 
-	MainWindow(QWidget* parent = nullptr);
-	~MainWindow();
 	rl* rlObject;
 	mdp* mdpObject;
+
+	MainWindow(QWidget* parent = nullptr);
+	~MainWindow();
 	void display_board(const state_t& state) const;
 	void keyPressEvent(QKeyEvent* event);
 	std::pair<int, int> randomMoveGhost(action_t action);
 
 private slots:
 
-	void MainWindow::loop();
+	void MainWindow::loopValue();
+	void MainWindow::loopQLearning();
 
 };
 #endif // MAINWINDOW_H

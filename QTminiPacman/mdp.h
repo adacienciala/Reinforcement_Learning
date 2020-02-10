@@ -63,6 +63,6 @@ public:
 	int getReward(const state_t& state) const;
 
 	std::vector<action_t> getPossibleActionsQLearning(const std::pair<int, int>& coords) const;
-
+	std::tuple<state_t, int, bool> makeQStep(const state_t& cur_state, const action_t& actionPlayer, const action_t& actionGhost) const;
 };
 
