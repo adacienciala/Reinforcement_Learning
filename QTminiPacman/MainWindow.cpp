@@ -58,7 +58,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 		myTimer = new QTimer(this);
 		connect(myTimer, &QTimer::timeout, this, &MainWindow::loopValue);
-		myTimer->start(300);
+		myTimer->start(1);
 		qsrand(QTime::currentTime().msec());
 
 		display_board(this->cur_state);
@@ -181,6 +181,7 @@ void MainWindow::loopValue()
 void MainWindow::loopQLearning()
 {
 	static int episode = 0;
+	static bool nauka = true;
 	static state_t starting_state = this->cur_state;
 	this->display_board(this->cur_state);
 
@@ -193,7 +194,7 @@ void MainWindow::loopQLearning()
 			++episode;
 			qDebug() << "TERMINAL -> EP." << episode;
 			this->cur_state = starting_state;
-			if (episode == this->rlObject->episodes-10) myTimer->start(300);
+			if (episode == this->rlObject->episodes-1) myTimer->start(500);
 			return;
 		}
 	}
@@ -207,7 +208,13 @@ void MainWindow::loopQLearning()
 			fprintf(fp, "player: (%d, %d), ghost: (%d, %d), coin: (%d, %d) - %f\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second, state.second);
 		}
 		fclose(fp);
-		QApplication::quit();
+		if (nauka == false) QApplication::quit();
+		else
+		{
+			this->rlObject->epsilon = -1;
+			nauka = false;
+			episode = 0;
+		}
 	}
 }
 

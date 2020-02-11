@@ -223,6 +223,13 @@ std::tuple<state_t, int, bool> mdp::makeQStep(const state_t& cur_state, const ac
 		break;
 	}
 
+	bool is_terminal = isTerminal(next_state);
+	if (is_terminal == true)
+	{
+		int reward = getReward(next_state);
+		return std::make_tuple(next_state, reward, is_terminal);
+	}
+
 	switch (actionGhost)
 	{
 	case NORTH:
@@ -240,7 +247,7 @@ std::tuple<state_t, int, bool> mdp::makeQStep(const state_t& cur_state, const ac
 	}
 
 	int reward = getReward(next_state);
-	bool is_terminal = isTerminal(next_state);
+	is_terminal = isTerminal(next_state);
 
 	return std::make_tuple(next_state, reward, is_terminal);
 }

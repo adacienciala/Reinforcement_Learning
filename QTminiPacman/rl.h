@@ -14,12 +14,12 @@ private:
 	std::map<state_t, action_t> state_policies;
 	float gamma; // the "forgetting" factor
 	float delta; // the difference between state value in each iteration
-	float epsilon; // the propability of taking a random action
 	float alpha; // the learning rate
 	mdp* environment;
 
 public:
 
+	float epsilon; // the propability of taking a random action
 	int iterations;
 	int episodes;
 	std::map<state_t, float> state_values;

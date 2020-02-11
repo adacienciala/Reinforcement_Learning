@@ -11,7 +11,7 @@ rl::rl(mdp* environment)
 	this->environment = environment;
 	this->epsilon = 0.3f;
 	this->alpha = 0.5f;
-	this->episodes = 4000;
+	this->episodes = 1500;
 };
 
 float rl::computeQValue(const state_t& state, const action_t& action)
@@ -194,10 +194,12 @@ action_t rl::getAction(const state_t& state, bool player)
 	float prob = rand() % 100 / (float)100;
 	if (prob > this->epsilon && player == true)
 	{
+		if (player) std::cout << "compute " << prob << ">" << this->epsilon << std::endl;
 		return computeActionFromQVal(state);
 	}
 	else
 	{
+		if (player) std::cout << "random " << prob << "<=" << this->epsilon << std::endl;
 		std::pair<int, int> coords = (player == true) ? state.player : state.ghost;
 		std::vector<action_t> possibleActions = this->environment->getPossibleActionsQLearning(coords);
 		return possibleActions[rand() % possibleActions.size()];
