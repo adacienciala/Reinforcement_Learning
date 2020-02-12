@@ -8,6 +8,12 @@ enum action_t { NORTH, EAST, SOUTH, WEST, STAY };
 
 struct state_t
 {
+	// a STATE is described by 3 factors:
+	// - coordinates of the player
+	// - coordinates of the ghost
+	// - coordinates of the coin
+	// so a state is, in some way, a "screenshoot" of the game
+
 	std::pair<int, int> player;
 	std::pair<int, int> ghost;
 	std::pair<int, int> coin;
@@ -44,6 +50,7 @@ class mdp
 
 private:
 
+	// GRID - map of < (x, y), WALL/EMPTY >
 	std::map<std::pair<int, int>, int> grid;
 	state_t cur_state;
 	float gamma;
@@ -54,6 +61,8 @@ public:
 	int width;
 	int height;
 	mdp(const std::map<std::pair<int, int>, int>& grid, int width, int height);
+
+	// VALUE and POLICY iterations' methods
 	std::vector<state_t> getAllStates() const;
 	std::vector<action_t> getPossibleActions(const state_t& state) const;
 	std::vector<state_t> getNextStates(const state_t& state, action_t action) const;
@@ -62,7 +71,9 @@ public:
 	bool isAvailable(const std::pair<int, int>& coordinate, action_t action) const;
 	int getReward(const state_t& state) const;
 
+	// QLEARNING's methods
 	std::vector<action_t> getPossibleActionsQLearning(const std::pair<int, int>& coords) const;
 	std::tuple<state_t, int, bool> makeQStep(const state_t& cur_state, const action_t& actionPlayer, const action_t& actionGhost) const;
+
 };
 

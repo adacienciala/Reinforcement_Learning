@@ -201,13 +201,19 @@ void MainWindow::loopQLearning()
 	else
 	{
 		qDebug() << "KONIEC NAUKI\n";
+
 		FILE* fp;
 		fp = fopen("Qvalues.txt", "w");
-		for (const auto& state : this->rlObject->state_values)
+		for (const auto& state : this->rlObject->state_QValues)
 		{
-			fprintf(fp, "player: (%d, %d), ghost: (%d, %d), coin: (%d, %d) - %f\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second, state.second);
+			fprintf(fp, "* player: (%d, %d), ghost: (%d, %d), coin: (%d, %d):\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second);
+			for (const auto& action : state.second)
+			{
+				fprintf(fp, "\t-%f\n", action.second);
+			}
 		}
 		fclose(fp);
+
 		if (nauka == false) QApplication::quit();
 		else
 		{

@@ -11,26 +11,34 @@ class rl
 
 private:
 
+	mdp* environment;
+
+	// VALUE&POLICY iterations
 	std::map<state_t, action_t> state_policies;
 	float gamma; // the "forgetting" factor
 	float delta; // the difference between state value in each iteration
+	
+	// QLEARNING
 	float alpha; // the learning rate
-	mdp* environment;
 
 public:
 
-	float epsilon; // the propability of taking a random action
-	int iterations;
-	int episodes;
-	std::map<state_t, float> state_values;
-
 	rl(mdp* environment);
+	
+	// VALUE&POLICY iterations
+	int iterations;
+	std::map<state_t, float> state_values; // state and its value
 
 	float computeQValue(const state_t& state, const action_t& action);
 	void runValueIteration();
 	void runPolicyIteration();
 	action_t getBestPolicy(const state_t& state) const;
 	void clearStateValues();
+
+	// QLEARNING
+	float epsilon; // the propability of taking a random action
+	int episodes;
+	std::map<state_t, std::map<action_t, float>> state_QValues; // state and possible actions with values
 
 	void runQLearning(const state_t& starting_state);
 	bool rl::stepQLearning(state_t& state);
