@@ -21,6 +21,12 @@ MainWindow::MainWindow(QWidget *parent)
 
 	int width = 4, height = 5;
 
+	/*this->grid = {
+		{{0, 0}, 0 }, {{1, 0}, 0 },
+		{{0, 1}, 0 }, {{1, 1}, 0 } };
+
+	int width = 2, height = 2;*/
+
 	//automatyczne przypisanie labelow by bylo fajne kiedys V:
 	/*for (int i = 0; i < width; ++i)
 	{
@@ -44,6 +50,7 @@ MainWindow::MainWindow(QWidget *parent)
 	}
 
 	this->cur_state = { { 0, 4 }, { 3, 0 }, {2, 2} };
+	//this->cur_state = { { 0, 0 }, { 0, 1 }, {1, 1} };
 
 	this->mdpObject = new mdp(grid, width, height);
 	this->rlObject = new rl(this->mdpObject);
@@ -189,12 +196,22 @@ void MainWindow::loopQLearning()
 	{
 		bool is_terminal = this->rlObject->stepQLearning(this->cur_state);
 		this->display_board(this->cur_state);
+
+		/*for (const auto& state : this->rlObject->state_QValues)
+		{
+			printf("* player: (%d, %d), ghost: (%d, %d), coin: (%d, %d):\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second);
+			for (const auto& action : state.second)
+			{
+				printf("\t-%d. %f\n", action.first, action.second);
+			}
+		}*/
+
 		if (is_terminal == true)
 		{
 			++episode;
 			qDebug() << "TERMINAL -> EP." << episode;
 			this->cur_state = starting_state;
-			if (episode == this->rlObject->episodes) myTimer->start(500);
+			if (episode == this->rlObject->episodes) myTimer->start(250);
 			return;
 		}
 	}

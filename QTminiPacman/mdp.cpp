@@ -186,6 +186,7 @@ int mdp::getReward(const state_t& state) const
 std::vector<action_t> mdp::getPossibleActionsQLearning(const std::pair<int, int>& coords, bool player) const
 {
 	// returns possible actions - not into walls
+	// additionally, the ghost have an option to STAY
 
 	std::vector<action_t> possibleActions = std::vector<action_t>();
 

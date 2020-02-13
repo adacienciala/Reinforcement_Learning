@@ -11,7 +11,7 @@ rl::rl(mdp* environment)
 	this->environment = environment;
 	this->epsilon = 0.3f;
 	this->alpha = 0.5f;
-	this->episodes = 1000;
+	this->episodes = 500;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -196,13 +196,13 @@ bool rl::stepQLearning(state_t& state)
 	int reward = 0;
 	bool is_terminal = false;
 
-	action_t actionGhost = getAction(state, false);
 	action_t actionPlayer = getAction(state, true);
+	action_t actionGhost = getAction(state, false);
 
 	std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer, actionGhost);
 
 	float QVal = getQValue(state, actionPlayer) + (this->alpha * (reward + (this->delta * computeValFromQVal(next_state)) - getQValue(state, actionPlayer)));
-	this->state_QValues[state][actionPlayer] = is_terminal ? reward : QVal;
+	this->state_QValues[state][actionPlayer] = QVal;
 	
 	state = next_state;
 	return is_terminal;
@@ -234,16 +234,17 @@ action_t rl::getAction(const state_t& state, bool player)
 float rl::getQValue(const state_t& state, const action_t& action)
 {
 	// looks up the given state and gets value for the given action
-	// if the state was not encountered or the action wasn't taken yet, appends the state with the 0.0 value for the given action
+	// if the state was not encountered or the action wasn't taken yet: 
+	// - appends the state with the reward value for the given action (important for terminal states)
 	// returns the QValue of the action from the given state
 	
 	const auto sought_state = this->state_QValues.find(state);
 	if (sought_state == this->state_QValues.end() || sought_state->second.find(action) == sought_state->second.end())
 	{
-		this->state_QValues[state][action] = 0.0f;
+		this->state_QValues[state][action] = (float)this->environment->getReward(state);
 	}
 	
-	float QVal = this->environment->isTerminal(state) ? this->environment->getReward(state) : this->state_QValues.at(state).at(action);
+	float QVal = this->state_QValues.at(state).at(action);
 	
 	return QVal;
 }
@@ -281,7 +282,7 @@ float rl::computeValFromQVal(const state_t& state)
 
 		for (const auto& action : possibleActions)
 		{
-			this->state_QValues[state][action] = 0.0f;
+			this->state_QValues[state][action] = (float)this->environment->getReward(state);
 		}
 		return 0.0f;
 	}
@@ -336,7 +337,7 @@ action_t rl::computeActionFromQVal(const state_t& state)
 
 		for (const auto& action : possibleActions)
 		{
-			this->state_QValues[state][action] = 0.0f;
+			this->state_QValues[state][action] = (float)this->environment->getReward(state);
 		}
 		return possibleActions[rand() % possibleActions.size()];
 	}
