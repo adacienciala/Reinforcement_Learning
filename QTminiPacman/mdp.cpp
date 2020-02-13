@@ -183,19 +183,20 @@ int mdp::getReward(const state_t& state) const
 	return 0;
 }
 
-std::vector<action_t> mdp::getPossibleActionsQLearning(const std::pair<int, int>& coords) const
+std::vector<action_t> mdp::getPossibleActionsQLearning(const std::pair<int, int>& coords, bool player) const
 {
 	// returns possible actions - not into walls
 
 	std::vector<action_t> possibleActions = std::vector<action_t>();
 
-	for (auto& action : { NORTH, EAST, SOUTH, WEST, STAY })
+	for (auto& action : { NORTH, EAST, SOUTH, WEST })
 	{
 		if (this->isAvailable(coords, action) == true)
 		{
 			possibleActions.push_back(action);
 		}
 	}
+	if (player == false) possibleActions.push_back(STAY);
 
 	return possibleActions;
 }

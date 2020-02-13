@@ -151,8 +151,6 @@ void rl::runQLearning(const state_t& starting_state)
 	// an episode ends, when the state is terminate - player won or lost
 	// gathered knowledge is saved in the state_QValues <state_t <action_t float>> map
 
-	this->state_QValues;
-
 	float QVal;
 	for (int i = 0; i < this->episodes; ++i)
 	{
@@ -167,7 +165,7 @@ void rl::runQLearning(const state_t& starting_state)
 
 			std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer, actionGhost);
 
-			QVal = getQValue(state, actionPlayer) + this->alpha * (reward + (this->delta * computeValFromQVal(next_state)) - getQValue(state, actionPlayer));
+			QVal = getQValue(state, actionPlayer) + (this->alpha * (reward + (this->delta * computeValFromQVal(next_state)) - getQValue(state, actionPlayer)));
 			this->state_QValues[state][actionPlayer] = QVal;
 			state = next_state;
 		}
@@ -203,14 +201,13 @@ bool rl::stepQLearning(state_t& state)
 
 	std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer, actionGhost);
 
-	float QVal = getQValue(state, actionPlayer) + this->alpha * (reward + (this->delta * computeValFromQVal(next_state)) - getQValue(state, actionPlayer));
-	this->state_QValues[state][actionPlayer] = QVal;
+	float QVal = getQValue(state, actionPlayer) + (this->alpha * (reward + (this->delta * computeValFromQVal(next_state)) - getQValue(state, actionPlayer)));
+	this->state_QValues[state][actionPlayer] = is_terminal ? reward : QVal;
 	
 	state = next_state;
 	return is_terminal;
 }
 
-// usun kiedys to debugowanie coutowe XD
 action_t rl::getAction(const state_t& state, bool player)
 {
 	// for the player: [player == true]
@@ -224,14 +221,12 @@ action_t rl::getAction(const state_t& state, bool player)
 	float prob = rand() % 100 / (float)100;
 	if (prob > this->epsilon && player == true)
 	{
-		if (player) std::cout << "compute " << prob << ">" << this->epsilon << std::endl;
 		return computeActionFromQVal(state);
 	}
 	else
 	{
-		if (player) std::cout << "random " << prob << "<=" << this->epsilon << std::endl;
 		std::pair<int, int> coords = (player == true) ? state.player : state.ghost;
-		std::vector<action_t> possibleActions = this->environment->getPossibleActionsQLearning(coords);
+		std::vector<action_t> possibleActions = this->environment->getPossibleActionsQLearning(coords, player);
 		return possibleActions[rand() % possibleActions.size()];
 	}
 }
@@ -239,15 +234,16 @@ action_t rl::getAction(const state_t& state, bool player)
 float rl::getQValue(const state_t& state, const action_t& action)
 {
 	// looks up the given state and gets value for the given action
-	// if the state was not encountered yet, appends the state with the 0.0 value for the given action
+	// if the state was not encountered or the action wasn't taken yet, appends the state with the 0.0 value for the given action
 	// returns the QValue of the action from the given state
 	
 	const auto sought_state = this->state_QValues.find(state);
-	if (sought_state == this->state_QValues.end())
+	if (sought_state == this->state_QValues.end() || sought_state->second.find(action) == sought_state->second.end())
 	{
 		this->state_QValues[state][action] = 0.0f;
 	}
-	float QVal = this->state_QValues.at(state).at(action);
+	
+	float QVal = this->environment->isTerminal(state) ? this->environment->getReward(state) : this->state_QValues.at(state).at(action);
 	
 	return QVal;
 }
@@ -258,7 +254,7 @@ float rl::computeValFromQVal(const state_t& state)
 	// returns max of the possible actions' values
 	// if the state is not found, appends the state with all possible actions and returns 0
 
-	auto sought_state = this->state_QValues.find(state);
+	const auto sought_state = this->state_QValues.find(state);
 
 	if (sought_state != this->state_QValues.end())
 	{
@@ -278,7 +274,9 @@ float rl::computeValFromQVal(const state_t& state)
 	}
 	else
 	{
-		std::vector<action_t> possibleActions = this->environment->getPossibleActionsQLearning(state.player);
+		std::vector<action_t> possibleActions;
+		if (!this->environment->isTerminal(state)) possibleActions = this->environment->getPossibleActionsQLearning(state.player, true);
+		else possibleActions.push_back(STAY);
 		if (possibleActions.empty()) return 0.0f;
 
 		for (const auto& action : possibleActions)
@@ -295,9 +293,9 @@ action_t rl::computeActionFromQVal(const state_t& state)
 	// returns action linked to the max of the possible actions' values (or to random of equal max ones)
 	// if the state is not found, appends the state and returns random
 
-	auto searchedState = this->state_values.find(state);
+	auto searchedState = this->state_QValues.find(state);
 
-	if (searchedState != this->state_values.end())
+	if (searchedState != this->state_QValues.end())
 	{
 		std::vector<float> values;
 		float QVal, max = 0;
@@ -331,7 +329,9 @@ action_t rl::computeActionFromQVal(const state_t& state)
 	}
 	else
 	{
-		std::vector<action_t> possibleActions = this->environment->getPossibleActionsQLearning(state.player);
+		std::vector<action_t> possibleActions;
+		if (!this->environment->isTerminal(state)) possibleActions = this->environment->getPossibleActionsQLearning(state.player, true);
+		else possibleActions.push_back(STAY);
 		if (possibleActions.empty()) return STAY;
 
 		for (const auto& action : possibleActions)

@@ -194,7 +194,7 @@ void MainWindow::loopQLearning()
 			++episode;
 			qDebug() << "TERMINAL -> EP." << episode;
 			this->cur_state = starting_state;
-			if (episode == this->rlObject->episodes-1) myTimer->start(500);
+			if (episode == this->rlObject->episodes) myTimer->start(500);
 			return;
 		}
 	}
@@ -209,7 +209,7 @@ void MainWindow::loopQLearning()
 			fprintf(fp, "* player: (%d, %d), ghost: (%d, %d), coin: (%d, %d):\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second);
 			for (const auto& action : state.second)
 			{
-				fprintf(fp, "\t-%f\n", action.second);
+				fprintf(fp, "\t-%d. %f\n", action.first, action.second);
 			}
 		}
 		fclose(fp);
@@ -218,6 +218,7 @@ void MainWindow::loopQLearning()
 		else
 		{
 			this->rlObject->epsilon = -1;
+			this->rlObject->alpha = 1;
 			nauka = false;
 			episode = 0;
 		}

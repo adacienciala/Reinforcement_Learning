@@ -19,7 +19,6 @@ private:
 	float delta; // the difference between state value in each iteration
 	
 	// QLEARNING
-	float alpha; // the learning rate
 
 public:
 
@@ -37,6 +36,7 @@ public:
 
 	// QLEARNING
 	float epsilon; // the propability of taking a random action
+	float alpha; // the learning rate
 	int episodes;
 	std::map<state_t, std::map<action_t, float>> state_QValues; // state and possible actions with values
 
