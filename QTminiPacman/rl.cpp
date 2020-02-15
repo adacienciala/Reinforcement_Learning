@@ -12,6 +12,7 @@ rl::rl(mdp* environment)
 	this->epsilon = 0.3f;
 	this->alpha = 0.5f;
 	this->episodes = 500;
+	this->mode = NOT_SET;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -135,7 +136,7 @@ action_t rl::getBestPolicy(const state_t& state) const
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////// -------- QLEARNING -------- /////////////////////////////////////
+//////////////////////////////// -------- QLEARNING + SARSA -------- /////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // ------------------- Q(S,A) = Q(S,A) + alfa (R + delta * maxQ(S',a) - Q(S,A)) ------------------- //
 // Q(S,A)			- QVal of the state with a given action
@@ -143,6 +144,13 @@ action_t rl::getBestPolicy(const state_t& state) const
 // R				- reward in the given state
 // gamma			- forgetting factor
 // maxQ(S',a)		- max QVal of the actions taken from the next state
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// -------------------- Q(S,A) = Q(S,A) + alfa (R + delta * Q(S',A') - Q(S,A)) -------------------- //
+// Q(S,A)			- QVal of the state with a given action
+// alfa			- learning rate
+// R				- reward in the given state
+// gamma			- forgetting factor
+// Q(S',A')		- QVal of the next state with the best action (that will be taken)
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void rl::runQLearning(const state_t& starting_state)
@@ -187,7 +195,7 @@ void rl::runQLearning(const state_t& starting_state)
 bool rl::stepQLearning(state_t& state)
 {
 	// a step is making a move from the given state
-	// randoms actions for the ghost and the player
+	// gets actions for the ghost and the player
 	// gets feedback from the mdp
 	// calculates QVal of the state and saves it
 	// returns info whether the next state is terminal (so the episode can end)
@@ -205,6 +213,38 @@ bool rl::stepQLearning(state_t& state)
 	this->state_QValues[state][actionPlayer] = QVal;
 	
 	state = next_state;
+	return is_terminal;
+}
+
+bool rl::stepSarsa(state_t& state, bool reset)
+{
+	// a step is making a move from the given state
+	// randoms actions for the ghost
+	// gets feedback from the mdp
+	// calculates best next action and saves it
+	// calculates QVal of the state and saves it
+	// returns info whether the next state is terminal (so the episode can end)
+
+	state_t next_state;
+	action_t next_player;
+	int reward = 0;
+	bool is_terminal = false;
+
+	static action_t actionPlayer = getAction(state, true);
+	if (reset == true)
+	{
+		actionPlayer = getAction(state, true);
+	}
+	action_t actionGhost = getAction(state, false);
+
+	std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer, actionGhost);
+
+	next_player = computeActionFromQVal(next_state);
+	float QVal = getQValue(state, actionPlayer) + (this->alpha * (reward + (this->delta * computeValFromQVal(next_state)) - getQValue(state, actionPlayer)));
+	this->state_QValues[state][actionPlayer] = QVal;
+
+	state = next_state;
+	actionPlayer = next_player;
 	return is_terminal;
 }
 
@@ -226,8 +266,7 @@ action_t rl::getAction(const state_t& state, bool player)
 	else
 	{
 		std::pair<int, int> coords = (player == true) ? state.player : state.ghost;
-		std::vector<action_t> possibleActions = this->environment->getPossibleActionsQLearning(coords, player);
-		return possibleActions[rand() % possibleActions.size()];
+		return this->environment->randomAction(coords, player);
 	}
 }
 

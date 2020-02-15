@@ -6,6 +6,8 @@
 
 #include "mdp.h"
 
+enum mode_t { NOT_SET, VPITERATIONS, QLEARNING, SARSA };
+
 class rl
 {
 
@@ -23,6 +25,7 @@ private:
 public:
 
 	rl(mdp* environment);
+	enum mode_t mode;
 	
 	// VALUE&POLICY iterations
 	int iterations;
@@ -34,17 +37,18 @@ public:
 	action_t getBestPolicy(const state_t& state) const;
 	void clearStateValues();
 
-	// QLEARNING
+	// QLEARNING + SARSA
 	float epsilon; // the propability of taking a random action
 	float alpha; // the learning rate
 	int episodes;
 	std::map<state_t, std::map<action_t, float>> state_QValues; // state and possible actions with values
 
 	void runQLearning(const state_t& starting_state);
-	bool rl::stepQLearning(state_t& state);
+	bool stepQLearning(state_t& state);
+	bool stepSarsa(state_t& state, bool reset);
 	float computeValFromQVal(const state_t& state);
 	action_t computeActionFromQVal(const state_t& state);
 	float getQValue(const state_t& state, const action_t& action);
-	action_t getAction(const state_t& state, bool player = true);
+	action_t getAction(const state_t& state, bool player);
 
 };

@@ -18,11 +18,18 @@ class MainWindow : public QMainWindow
 
 private:
 
+	QPixmap pixGhost;
+	QPixmap pixPlayer;
+	QPixmap pixCoin;
+
     Ui::MainWindow *ui;
 	std::map<std::pair<int, int>, int> grid;
 	std::map<std::pair<int, int>, QLabel *> labels;
+	state_t starting_state;
 	state_t cur_state;
 	QTimer* myTimer;
+	int timerSpeed;
+	bool reset;
 
 public:
 
@@ -37,8 +44,18 @@ public:
 
 private slots:
 
-	void MainWindow::loopValue();
-	void MainWindow::loopQLearning();
+	void loopValue();
+	void loopQLearning();
+	void loopSarsa();
 
+    void on_VPButton_clicked(bool checked);
+    void on_QLButton_clicked(bool checked);
+    void on_SarsaButton_clicked(bool checked);
+
+    void on_ItSpinBox_valueChanged(int value);
+    void on_RunButton_clicked(bool checked);
+
+    void on_ResetButton_clicked();
+    void on_SpeedSpinBox_valueChanged(int value);
 };
 #endif // MAINWINDOW_H

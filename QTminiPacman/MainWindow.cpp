@@ -11,6 +11,12 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
 	srand(time(NULL));
+	myTimer = new QTimer(this);
+	qsrand(QTime::currentTime().msec());
+
+	this->pixGhost.load("ghost.png");
+	this->pixPlayer.load("pacman.png");
+	this->pixCoin.load("coin.png");
 
 	this->grid = {
 		{{0, 0}, 0 }, {{1, 0}, 0 }, {{2, 0}, 0 }, {{3, 0}, 0 },
@@ -49,36 +55,14 @@ MainWindow::MainWindow(QWidget *parent)
 		label->setGeometry(QRect(x(), y(), 100, 100));
 	}
 
-	this->cur_state = { { 0, 4 }, { 3, 0 }, {2, 2} };
-	//this->cur_state = { { 0, 0 }, { 0, 1 }, {1, 1} };
+	this->starting_state = { { 0, 4 }, { 3, 0 }, {2, 2} };
+	//this->starting_state = { { 0, 0 }, { 0, 1 }, {1, 1} };
+	this->cur_state = this->starting_state;
 
 	this->mdpObject = new mdp(grid, width, height);
 	this->rlObject = new rl(this->mdpObject);
-	
-
-	if (false)
-	{
-		qDebug() << "VALUE ON\n";
-		this->rlObject->runValueIteration();
-		qDebug() << "VALUE DONE\n";
-		this->rlObject->runPolicyIteration();
-
-		myTimer = new QTimer(this);
-		connect(myTimer, &QTimer::timeout, this, &MainWindow::loopValue);
-		myTimer->start(1);
-		qsrand(QTime::currentTime().msec());
-
-		display_board(this->cur_state);
-	}
-	else
-	{
-		myTimer = new QTimer(this);
-		connect(myTimer, &QTimer::timeout, this, &MainWindow::loopQLearning);
-		myTimer->start(1);
-		qsrand(QTime::currentTime().msec());
-
-		display_board(this->cur_state);
-	}
+	this->reset = false;
+	this->timerSpeed = this->ui->SpeedSpinBox->value();
 }
 
 MainWindow::~MainWindow()
@@ -101,30 +85,15 @@ void MainWindow::display_board(const state_t& state) const
 		
 		if (pos == state.coin)
 		{
-			QString filename = "coin.png";
-			QPixmap pix;
-			if (pix.load(filename))
-			{
-				label->setPixmap(pix.scaled(label->size(), Qt::KeepAspectRatio));
-			}
+			label->setPixmap(pixCoin.scaled(label->size(), Qt::KeepAspectRatio));
 		}
 		if (pos == state.player)
 		{
-			QString filename = "pacman.png";
-			QPixmap pix;
-			if (pix.load(filename))
-			{
-				label->setPixmap(pix.scaled(label->size(), Qt::KeepAspectRatio));
-			}
+			label->setPixmap(pixPlayer.scaled(label->size(), Qt::KeepAspectRatio));
 		}
 		if (pos == state.ghost)
 		{
-			QString filename = "ghost.png";
-			QPixmap pix;
-			if (pix.load(filename))
-			{
-				label->setPixmap(pix.scaled(label->size(), Qt::KeepAspectRatio));
-			}
+			label->setPixmap(pixGhost.scaled(label->size(), Qt::KeepAspectRatio));
 		}
 	}
 }
@@ -180,7 +149,7 @@ void MainWindow::loopValue()
 		else
 		{
 			qDebug() << "ZJADLO GO\n";
-			QApplication::quit();
+			on_VPButton_clicked(false);
 		}
 	}
 }
@@ -189,7 +158,12 @@ void MainWindow::loopQLearning()
 {
 	static int episode = 0;
 	static bool nauka = true;
-	static state_t starting_state = this->cur_state;
+	if (this->reset == true)
+	{
+		this->reset = false;
+		episode = 0;
+		nauka = true;
+	}
 	this->display_board(this->cur_state);
 
 	if (episode < this->rlObject->episodes)
@@ -210,8 +184,70 @@ void MainWindow::loopQLearning()
 		{
 			++episode;
 			qDebug() << "TERMINAL -> EP." << episode;
-			this->cur_state = starting_state;
-			if (episode == this->rlObject->episodes) myTimer->start(250);
+			this->cur_state = this->starting_state;
+			if (episode == this->rlObject->episodes) this->ui->SpeedSpinBox->setValue(250);
+			return;
+		}
+	}
+	else
+	{
+		qDebug() << "KONIEC NAUKI\n";
+
+		FILE* fp;
+		fp = fopen("Qvalues.txt", "w");
+		for (const auto& state : this->rlObject->state_QValues)
+		{
+			fprintf(fp, "* player: (%d, %d), ghost: (%d, %d), coin: (%d, %d):\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second);
+			for (const auto& action : state.second)
+			{
+				fprintf(fp, "\t-%d. %f\n", action.first, action.second);
+			}
+		}
+		fclose(fp);
+
+		if (nauka == false) QApplication::quit();
+		else
+		{
+			this->rlObject->epsilon = -1;
+			this->rlObject->alpha = 1;
+			nauka = false;
+			episode = 0;
+		}
+	}
+}
+
+void MainWindow::loopSarsa()
+{
+	static int episode = 0;
+	static bool nauka = true;
+	if (this->reset == true)
+	{
+		episode = 0;
+		nauka = true;
+	}
+	this->display_board(this->cur_state);
+
+	if (episode < this->rlObject->episodes)
+	{
+		bool is_terminal = this->rlObject->stepSarsa(this->cur_state, this->reset);
+		if (this->reset == true) this->reset = false;
+		this->display_board(this->cur_state);
+
+		/*for (const auto& state : this->rlObject->state_QValues)
+		{
+			printf("* player: (%d, %d), ghost: (%d, %d), coin: (%d, %d):\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second);
+			for (const auto& action : state.second)
+			{
+				printf("\t-%d. %f\n", action.first, action.second);
+			}
+		}*/
+
+		if (is_terminal == true)
+		{
+			++episode;
+			qDebug() << "TERMINAL -> EP." << episode;
+			this->cur_state = this->starting_state;
+			if (episode == this->rlObject->episodes) this->ui->SpeedSpinBox->setValue(250);
 			return;
 		}
 	}
@@ -311,4 +347,151 @@ std::pair<int, int> MainWindow::randomMoveGhost(action_t action)
 	}
 
 	return new_coords;
+}
+
+void MainWindow::on_VPButton_clicked(bool checked)
+{
+	if (checked == true)
+	{
+		this->ui->ItLabel->setText("ITERATIONS");
+		this->rlObject->mode = VPITERATIONS;
+		this->ui->Options->setTitle("MODE: Value + Policy");
+		this->ui->QLButton->setChecked(false);
+		this->ui->SarsaButton->setChecked(false);
+	}
+	else
+	{
+		this->rlObject->mode = NOT_SET;
+		this->ui->Options->setTitle("MODE:");
+	}
+}
+
+void MainWindow::on_QLButton_clicked(bool checked)
+{
+	if (checked == true)
+	{
+		this->ui->ItLabel->setText("EPISODES");
+		this->rlObject->mode = QLEARNING;
+		this->ui->Options->setTitle("MODE: Qlearning");
+		this->ui->VPButton->setChecked(false);
+		this->ui->SarsaButton->setChecked(false);
+	}
+	else
+	{
+		this->rlObject->mode = NOT_SET;
+		this->ui->Options->setTitle("MODE:");
+	}
+}
+
+void MainWindow::on_SarsaButton_clicked(bool checked)
+{
+	if (checked == true)
+	{
+		this->ui->ItLabel->setText("EPISODES");
+		this->rlObject->mode = SARSA;
+		this->ui->Options->setTitle("MODE: Sarsa");
+		this->ui->VPButton->setChecked(false);
+		this->ui->QLButton->setChecked(false);
+	}
+	else
+	{
+		this->rlObject->mode = NOT_SET;
+		this->ui->Options->setTitle("MODE:");
+	}
+}
+
+void MainWindow::on_ItSpinBox_valueChanged(int value)
+{
+	switch (this->rlObject->mode)
+	{
+	case VPITERATIONS:
+		this->rlObject->iterations = value;
+		break;
+	case QLEARNING:
+	case SARSA:
+		this->rlObject->episodes = value;
+		break;
+	}
+}
+
+void MainWindow::on_RunButton_clicked(bool checked)
+{
+	if (checked == true)
+	{
+		this->ui->RunButton->setText("PAUSE");
+		switch (this->rlObject->mode)
+		{
+		case VPITERATIONS:
+			qDebug() << "VALUE ON\n";
+			this->rlObject->runValueIteration();
+			qDebug() << "POLICY ON\n";
+			this->rlObject->runPolicyIteration();
+			connect(myTimer, &QTimer::timeout, this, &MainWindow::loopValue);
+			break;
+		case QLEARNING:
+			qDebug() << "QL ON\n";
+			connect(myTimer, &QTimer::timeout, this, &MainWindow::loopQLearning);
+			break;
+		case SARSA:
+			qDebug() << "SARSA ON\n";
+			connect(myTimer, &QTimer::timeout, this, &MainWindow::loopSarsa);
+			break;
+		case NOT_SET:
+			this->ui->RunButton->setText("RUN");
+			this->ui->RunButton->setChecked(false);
+			return;
+		}
+		myTimer->start(this->timerSpeed);
+	}
+	else
+	{
+		this->ui->RunButton->setText("RUN");
+		switch (this->rlObject->mode)
+		{
+		case VPITERATIONS:
+			qDebug() << "VALUE OFF\n";
+			disconnect(myTimer, &QTimer::timeout, this, &MainWindow::loopValue);
+			break;
+		case QLEARNING:
+			qDebug() << "QL OFF";
+			disconnect(myTimer, &QTimer::timeout, this, &MainWindow::loopQLearning);
+			break;
+		case SARSA:
+			qDebug() << "SARSA OFF";
+			disconnect(myTimer, &QTimer::timeout, this, &MainWindow::loopSarsa);
+			break;
+		}
+	}
+}
+
+void MainWindow::on_ResetButton_clicked()
+{
+	disconnect(myTimer, nullptr, nullptr, nullptr);
+	this->timerSpeed = 1;
+	this->reset = true;
+	this->rlObject->mode = NOT_SET;
+
+	this->ui->RunButton->setText("RUN");
+	this->ui->Options->setTitle("MODE:");
+
+	this->ui->SpeedSpinBox->setValue(1);
+	this->ui->ItSpinBox->setValue(1000);
+	this->ui->QLButton->setChecked(false);
+	this->ui->SarsaButton->setChecked(false);
+	this->ui->VPButton->setChecked(false);
+	this->ui->RunButton->setChecked(false);
+	printf("RESET");
+
+	this->cur_state = this->starting_state;
+	this->rlObject->clearStateValues();
+	this->rlObject->state_QValues.clear();
+	this->rlObject->episodes = 1000;
+
+	this->display_board(this->cur_state);
+}
+
+void MainWindow::on_SpeedSpinBox_valueChanged(int value)
+{
+	this->timerSpeed = value;
+	myTimer->start(this->timerSpeed);
 }

@@ -253,3 +253,11 @@ std::tuple<state_t, int, bool> mdp::makeQStep(const state_t& cur_state, const ac
 
 	return std::make_tuple(next_state, reward, is_terminal);
 }
+
+action_t mdp::randomAction(std::pair<int, int>& coords, bool player)
+{
+	// returns random of all possible actions
+
+	std::vector<action_t> possibleActions = this->getPossibleActionsQLearning(coords, player);
+	return possibleActions[rand() % possibleActions.size()];
+}

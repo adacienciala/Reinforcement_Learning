@@ -74,6 +74,7 @@ public:
 	// QLEARNING's methods
 	std::vector<action_t> getPossibleActionsQLearning(const std::pair<int, int>& coords, bool player) const;
 	std::tuple<state_t, int, bool> makeQStep(const state_t& cur_state, const action_t& actionPlayer, const action_t& actionGhost) const;
+	action_t mdp::randomAction(std::pair<int, int>& coords, bool player);
 
 };
 
