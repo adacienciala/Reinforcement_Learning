@@ -49,6 +49,6 @@ public:
 	float computeValFromQVal(const state_t& state);
 	action_t computeActionFromQVal(const state_t& state);
 	float getQValue(const state_t& state, const action_t& action);
-	action_t getAction(const state_t& state);
+	action_t getAction(const state_t& state, bool player);
 
 };

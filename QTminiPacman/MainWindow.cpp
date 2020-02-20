@@ -4,16 +4,14 @@
 
 #include <QDebug>
 
-#define DIF_EXAMPLE false
-
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
-	this->ui->setupUi(this);
+    ui->setupUi(this);
 
 	srand(time(NULL));
-	this->myTimer = new QTimer(this);
+	myTimer = new QTimer(this);
 	qsrand(QTime::currentTime().msec());
 
 	this->pixGhost.load("ghost.png");
@@ -26,20 +24,14 @@ MainWindow::MainWindow(QWidget *parent)
 		{{0, 2}, 0 }, {{1, 2}, -100 }, {{2, 2}, 0 }, {{3, 2}, 0 }, 
 		{{0, 3}, 0 }, {{1, 3}, -100 }, {{2, 3}, -100 }, {{3, 3}, 0 },
 		{{0, 4}, 0 }, {{1, 4}, 0 }, {{2, 4}, 0 }, {{3, 4}, 0 } };
-	this->starting_state = { { 0, 4 }, { 3, 2 }, {2, 2} };
-
-	if (DIF_EXAMPLE)
-	{
-		this->grid = {
-			{{0, 0}, 0 }, {{1, 0}, 0 }, {{2, 0}, 0 }, {{3, 0}, 0 },
-			{{0, 1}, 0 }, {{1, 1}, 0 }, {{2, 1}, 0 }, {{3, 1}, -0 },
-			{{0, 2}, 0 }, {{1, 2}, -100 }, {{2, 2}, -100 }, {{3, 2}, 0 },
-			{{0, 3}, 0 }, {{1, 3}, 0 }, {{2, 3}, 0 }, {{3, 3}, 0 },
-			{{0, 4}, 0 }, {{1, 4}, 0 }, {{2, 4}, 0 }, {{3, 4}, 0 } };
-		this->starting_state = { { 0, 4 }, { 1, 1 }, {2, 0} };
-	}
 
 	int width = 4, height = 5;
+
+	/*this->grid = {
+		{{0, 0}, 0 }, {{1, 0}, 0 },
+		{{0, 1}, 0 }, {{1, 1}, 0 } };
+
+	int width = 2, height = 2;*/
 
 	//automatyczne przypisanie labelow by bylo fajne kiedys V:
 	/*for (int i = 0; i < width; ++i)
@@ -63,12 +55,13 @@ MainWindow::MainWindow(QWidget *parent)
 		label->setGeometry(QRect(x(), y(), 100, 100));
 	}
 
+	this->starting_state = { { 0, 4 }, { 3, 0 }, {2, 2} };
+	//this->starting_state = { { 0, 0 }, { 0, 1 }, {1, 1} };
 	this->cur_state = this->starting_state;
 
 	this->mdpObject = new mdp(grid, width, height);
 	this->rlObject = new rl(this->mdpObject);
 	this->reset = false;
-	this->boost = false;
 	this->timerSpeed = this->ui->SpeedSpinBox->value();
 }
 
@@ -85,11 +78,11 @@ void MainWindow::display_board(const state_t& state) const
 	QPalette palette = this->ui->centralwidget->palette();
 	palette.setColor(this->ui->centralwidget->backgroundRole(), Qt::black);
 	this->ui->centralwidget->setPalette(palette);
-
+	
 	for (const auto& [pos, label] : this->labels)
 	{
 		label->setPixmap(QPixmap());
-
+		
 		if (pos == state.coin)
 		{
 			label->setPixmap(pixCoin.scaled(label->size(), Qt::KeepAspectRatio));
@@ -101,19 +94,6 @@ void MainWindow::display_board(const state_t& state) const
 		if (pos == state.ghost)
 		{
 			label->setPixmap(pixGhost.scaled(label->size(), Qt::KeepAspectRatio));
-		}
-		if (DIF_EXAMPLE)
-		{
-			if (this->grid.at(pos) == -100)
-			{
-				label->setStyleSheet(" border-width: 20 20 20 20; border-style: double; border-color: blue;");
-				label->setEnabled(false);
-			}
-			else
-			{
-				label->setStyleSheet("");
-				label->setEnabled(true);
-			}
 		}
 	}
 }
@@ -184,12 +164,12 @@ void MainWindow::loopQLearning()
 		episode = 0;
 		nauka = true;
 	}
-	if (this->boost == false) this->display_board(this->cur_state);
+	this->display_board(this->cur_state);
 
 	if (episode < this->rlObject->episodes)
 	{
 		bool is_terminal = this->rlObject->stepQLearning(this->cur_state);
-		if (this->boost == false) this->display_board(this->cur_state);
+		this->display_board(this->cur_state);
 
 		/*for (const auto& state : this->rlObject->state_QValues)
 		{
@@ -203,8 +183,7 @@ void MainWindow::loopQLearning()
 		if (is_terminal == true)
 		{
 			++episode;
-			if (nauka == true) this->ui->progressBar->setValue(episode);
-			qDebug() << "TERMINAL -> EP." << episode << "/" << this->rlObject->episodes;
+			qDebug() << "TERMINAL -> EP." << episode;
 			this->cur_state = this->starting_state;
 			if (episode == this->rlObject->episodes) this->ui->SpeedSpinBox->setValue(250);
 			return;
@@ -232,8 +211,6 @@ void MainWindow::loopQLearning()
 			this->rlObject->epsilon = -1;
 			this->rlObject->alpha = 1;
 			nauka = false;
-			this->ui->BoostButton->setChecked(false);
-			this->boost = false;
 			episode = 0;
 		}
 	}
@@ -248,13 +225,13 @@ void MainWindow::loopSarsa()
 		episode = 0;
 		nauka = true;
 	}
-	if (this->boost == false) this->display_board(this->cur_state);
+	this->display_board(this->cur_state);
 
 	if (episode < this->rlObject->episodes)
 	{
 		bool is_terminal = this->rlObject->stepSarsa(this->cur_state, this->reset);
 		if (this->reset == true) this->reset = false;
-		if (this->boost == false) this->display_board(this->cur_state);
+		this->display_board(this->cur_state);
 
 		/*for (const auto& state : this->rlObject->state_QValues)
 		{
@@ -268,8 +245,7 @@ void MainWindow::loopSarsa()
 		if (is_terminal == true)
 		{
 			++episode;
-			if (nauka == true) this->ui->progressBar->setValue(episode);
-			qDebug() << "TERMINAL -> EP." << episode << "/" << this->rlObject->episodes;
+			qDebug() << "TERMINAL -> EP." << episode;
 			this->cur_state = this->starting_state;
 			if (episode == this->rlObject->episodes) this->ui->SpeedSpinBox->setValue(250);
 			return;
@@ -280,7 +256,7 @@ void MainWindow::loopSarsa()
 		qDebug() << "KONIEC NAUKI\n";
 
 		FILE* fp;
-		fp = fopen("Svalues.txt", "w");
+		fp = fopen("Qvalues.txt", "w");
 		for (const auto& state : this->rlObject->state_QValues)
 		{
 			fprintf(fp, "* player: (%d, %d), ghost: (%d, %d), coin: (%d, %d):\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second);
@@ -297,8 +273,6 @@ void MainWindow::loopSarsa()
 			this->rlObject->epsilon = -1;
 			this->rlObject->alpha = 1;
 			nauka = false;
-			this->ui->BoostButton->setChecked(false);
-			this->boost = false;
 			episode = 0;
 		}
 	}
@@ -306,7 +280,6 @@ void MainWindow::loopSarsa()
 
 void MainWindow::keyPressEvent(QKeyEvent* event)
 {
-	if (event->key() != Qt::Key_Down && event->key() != Qt::Key_Up && event->key() != Qt::Key_Left && event->key() != Qt::Key_Right) return;
 	action_t action = this->rlObject->getBestPolicy(this->cur_state);
 	const auto& newGhost = this->randomMoveGhost(action);
 	switch (action)
@@ -439,7 +412,6 @@ void MainWindow::on_ItSpinBox_valueChanged(int value)
 		this->rlObject->episodes = value;
 		break;
 	}
-	this->ui->progressBar->setMaximum(value);
 }
 
 void MainWindow::on_RunButton_clicked(bool checked)
@@ -447,21 +419,15 @@ void MainWindow::on_RunButton_clicked(bool checked)
 	if (checked == true)
 	{
 		this->ui->RunButton->setText("PAUSE");
-		this->ui->trainLabel->setText("TRAINING...");
 		switch (this->rlObject->mode)
 		{
 		case VPITERATIONS:
-		{
-			static bool already_done = false;
-			if (this->reset = true) already_done = false;
 			qDebug() << "VALUE ON\n";
 			this->rlObject->runValueIteration();
 			qDebug() << "POLICY ON\n";
 			this->rlObject->runPolicyIteration();
-			already_done = true;
 			connect(myTimer, &QTimer::timeout, this, &MainWindow::loopValue);
 			break;
-		}
 		case QLEARNING:
 			qDebug() << "QL ON\n";
 			connect(myTimer, &QTimer::timeout, this, &MainWindow::loopQLearning);
@@ -505,18 +471,15 @@ void MainWindow::on_ResetButton_clicked()
 	this->reset = true;
 	this->rlObject->mode = NOT_SET;
 
-	this->ui->trainLabel->setText("");
 	this->ui->RunButton->setText("RUN");
 	this->ui->Options->setTitle("MODE:");
 
-	this->ui->progressBar->setValue(0);
 	this->ui->SpeedSpinBox->setValue(1);
 	this->ui->ItSpinBox->setValue(1000);
 	this->ui->QLButton->setChecked(false);
 	this->ui->SarsaButton->setChecked(false);
 	this->ui->VPButton->setChecked(false);
 	this->ui->RunButton->setChecked(false);
-	this->ui->BoostButton->setChecked(false);
 	printf("RESET");
 
 	this->cur_state = this->starting_state;
@@ -531,14 +494,4 @@ void MainWindow::on_SpeedSpinBox_valueChanged(int value)
 {
 	this->timerSpeed = value;
 	myTimer->start(this->timerSpeed);
-}
-
-void MainWindow::on_progressBar_valueChanged(int value)
-{
-	if (value == this->ui->progressBar->maximum()) this->ui->trainLabel->setText("FINISHED!");
-}
-
-void MainWindow::on_BoostButton_clicked(bool checked)
-{
-	this->boost = checked;
 }

@@ -9,7 +9,7 @@ rl::rl(mdp* environment)
 	this->delta = 0.05f;
 	this->iterations = 100;
 	this->environment = environment;
-	this->epsilon = 0.7f;
+	this->epsilon = 0.3f;
 	this->alpha = 0.5f;
 	this->episodes = 500;
 	this->mode = NOT_SET;
@@ -25,13 +25,13 @@ float rl::computeQValue(const state_t& state, const action_t& action)
 	// Q(s, a) - how good is to be in that state, what possible rewards can you get from there by taking given action
 	// returns value or 0, if the state is terminal
 
-	float value = 0, next_value = 0;
+	float value = 0, prev_value = 0;
 
 	std::map<std::pair<action_t, state_t>, float> transitions = this->environment->getTransitions(state, action);
 	for (const auto& it : transitions)
 	{
-		next_value = this->state_values[it.first.second];
-		value += it.second * (this->environment->getReward(state) + (this->gamma * next_value));
+		prev_value = this->state_values[it.first.second];
+		value += it.second * (this->environment->getReward(state) + (this->gamma * prev_value));
 	}
 
 	return value;
@@ -168,9 +168,10 @@ void rl::runQLearning(const state_t& starting_state)
 		bool is_terminal = false;
 		while (is_terminal == false)
 		{
-			action_t actionPlayer = getAction(state);
+			action_t actionGhost = getAction(state, false);
+			action_t actionPlayer = getAction(state, true);
 
-			std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer);
+			std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer, actionGhost);
 
 			QVal = getQValue(state, actionPlayer) + (this->alpha * (reward + (this->delta * computeValFromQVal(next_state)) - getQValue(state, actionPlayer)));
 			this->state_QValues[state][actionPlayer] = QVal;
@@ -203,9 +204,10 @@ bool rl::stepQLearning(state_t& state)
 	int reward = 0;
 	bool is_terminal = false;
 
-	action_t actionPlayer = getAction(state);
+	action_t actionPlayer = getAction(state, true);
+	action_t actionGhost = getAction(state, false);
 
-	std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer);
+	std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer, actionGhost);
 
 	float QVal = getQValue(state, actionPlayer) + (this->alpha * (reward + (this->delta * computeValFromQVal(next_state)) - getQValue(state, actionPlayer)));
 	this->state_QValues[state][actionPlayer] = QVal;
@@ -228,16 +230,17 @@ bool rl::stepSarsa(state_t& state, bool reset)
 	int reward = 0;
 	bool is_terminal = false;
 
-	static action_t actionPlayer = getAction(state);
+	static action_t actionPlayer = getAction(state, true);
 	if (reset == true)
 	{
-		actionPlayer = getAction(state);
+		actionPlayer = getAction(state, true);
 	}
+	action_t actionGhost = getAction(state, false);
 
-	std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer);
+	std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer, actionGhost);
 
 	next_player = computeActionFromQVal(next_state);
-	float QVal = getQValue(state, actionPlayer) + (this->alpha * (reward + (this->delta * getQValue(next_state, next_player)) - getQValue(state, actionPlayer)));
+	float QVal = getQValue(state, actionPlayer) + (this->alpha * (reward + (this->delta * computeValFromQVal(next_state)) - getQValue(state, actionPlayer)));
 	this->state_QValues[state][actionPlayer] = QVal;
 
 	state = next_state;
@@ -245,7 +248,7 @@ bool rl::stepSarsa(state_t& state, bool reset)
 	return is_terminal;
 }
 
-action_t rl::getAction(const state_t& state)
+action_t rl::getAction(const state_t& state, bool player)
 {
 	// for the player: [player == true]
 	// randomizes a number and, depending on the set epsilon, chooses an action
@@ -256,14 +259,14 @@ action_t rl::getAction(const state_t& state)
 	// returns random action
 
 	float prob = rand() % 100 / (float)100;
-	if (prob > this->epsilon)
+	if (prob > this->epsilon && player == true)
 	{
 		return computeActionFromQVal(state);
 	}
 	else
 	{
-		std::pair<int, int> coords = state.player;
-		return this->environment->randomAction(coords, true);
+		std::pair<int, int> coords = (player == true) ? state.player : state.ghost;
+		return this->environment->randomAction(coords, player);
 	}
 }
 

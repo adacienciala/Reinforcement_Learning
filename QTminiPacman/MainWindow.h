@@ -29,7 +29,6 @@ private:
 	state_t cur_state;
 	QTimer* myTimer;
 	int timerSpeed;
-	bool boost;
 	bool reset;
 
 public:
@@ -58,9 +57,5 @@ private slots:
 
     void on_ResetButton_clicked();
     void on_SpeedSpinBox_valueChanged(int value);
-
-    void on_progressBar_valueChanged(int value);
-
-    void on_BoostButton_clicked(bool checked);
 };
 #endif // MAINWINDOW_H
