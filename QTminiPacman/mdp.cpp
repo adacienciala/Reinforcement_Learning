@@ -202,7 +202,7 @@ std::vector<action_t> mdp::getPossibleActionsQLearning(const std::pair<int, int>
 	return possibleActions;
 }
 
-std::tuple<state_t, int, bool> mdp::makeQStep(const state_t& cur_state, const action_t& actionPlayer, const action_t& actionGhost) const
+std::tuple<state_t, int, bool> mdp::makeQStep(const state_t& cur_state, const action_t& actionPlayer)
 {
 	// makes a QLearning step
 	// returns the next_state, reward for the state and if it's terminal
@@ -232,6 +232,8 @@ std::tuple<state_t, int, bool> mdp::makeQStep(const state_t& cur_state, const ac
 		return std::make_tuple(next_state, reward, is_terminal);
 	}
 
+	action_t actionGhost = randomAction(next_state.ghost, false);
+
 	switch (actionGhost)
 	{
 	case NORTH:
@@ -254,9 +256,10 @@ std::tuple<state_t, int, bool> mdp::makeQStep(const state_t& cur_state, const ac
 	return std::make_tuple(next_state, reward, is_terminal);
 }
 
-action_t mdp::randomAction(std::pair<int, int>& coords, bool player)
+action_t mdp::randomAction(const std::pair<int, int>& coords, bool player)
 {
 	// returns random of all possible actions
+	// the ghost has an additional STAY action
 
 	std::vector<action_t> possibleActions = this->getPossibleActionsQLearning(coords, player);
 	return possibleActions[rand() % possibleActions.size()];
