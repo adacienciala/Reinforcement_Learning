@@ -1,5 +1,6 @@
 #include <iostream>
 #include <algorithm>
+#include <deque>
 
 #include "rl.h"
 
@@ -13,6 +14,7 @@ rl::rl(mdp* environment)
 	this->alpha = 0.5f;
 	this->episodes = 500;
 	this->mode = NOT_SET;
+	this->features_weights = { { FOOD_DISTANCE, { 0.0, 0.0 } }, { GHOST_DISTANCE, { 0.0, 0.0 } } };
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -377,4 +379,97 @@ action_t rl::computeActionFromQVal(const state_t& state)
 		}
 		return possibleActions[rand() % possibleActions.size()];
 	}
+}
+
+bool rl::stepFA(state_t& state, bool reset)
+{
+	// a step is making a move from the given state
+	// gets actions for the ghost and the player
+	// gets feedback from the mdp
+	// calculates QVal of the state and saves it
+	// returns info whether the next state is terminal (so the episode can end)
+
+	state_t next_state;
+	int reward = 0;
+	bool is_terminal = false;
+
+	action_t actionPlayer = getAction(state);
+
+	std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer);
+
+	float diff = (reward + (this->delta * computeValFromQVal(next_state))) - getQValueFA(state, actionPlayer);
+	for (auto& [feature, valWeight] : features_weights)
+	{
+		valWeight.second = valWeight.second + (this->alpha * diff * valWeight.first);
+	}
+
+	state = next_state;
+	return is_terminal;
+}
+
+float rl::getQValueFA(const state_t& state, const action_t& action)
+{
+	// feautures:
+	// - distance to food
+	// - distance to ghost
+
+	int foodDistance = 0;
+	int ghostDistance = 0;
+	std::deque<std::pair<state_t, int>> search;
+	search.push_back({ state, 0 });
+
+	while ((!foodDistance || !!ghostDistance) && search.size())
+	{
+		std::pair<state_t, int> temp = search.front;
+		search.pop_front();
+		
+		if (this->environment->isTerminal(temp.first))
+		{
+			if (!foodDistance && this->environment->getReward(temp.first) > 0)
+			{
+				foodDistance = temp.second;
+			}
+			if (!ghostDistance && this->environment->getReward(temp.first) < 0)
+			{
+				ghostDistance = temp.second;
+			}
+		}
+
+		std::vector<action_t> possibleActions = this->environment->getPossibleActions(temp.first);
+		for (const auto& action : possibleActions)
+		{
+			int x = 0;
+			int y = 0;
+			state_t tempState = temp.first;
+			switch (action)
+			{
+			case NORTH:
+				y -= 1;
+				break;
+			case SOUTH:
+				y += 1;
+				break;
+			case EAST:
+				x += 1;
+				break;
+			case WEST:
+				x -= 1;
+				break;
+			default:
+				continue;
+			}
+			temp.first.player.first += x;
+			temp.first.player.second += y;
+			search.push_back({ tempState, temp.second });
+		}
+	}
+	features_weights.at(FOOD_DISTANCE).first = foodDistance;
+	features_weights.at(GHOST_DISTANCE).first = ghostDistance;
+
+	float value = 0;
+	for (const auto& [feature, valWeight] : features_weights)
+	{
+		value += valWeight.first * valWeight.second;
+	}
+	return value;
 }

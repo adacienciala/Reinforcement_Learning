@@ -51,4 +51,10 @@ public:
 	float getQValue(const state_t& state, const action_t& action);
 	action_t getAction(const state_t& state);
 
+	// FUNCTION APPROXIMATION
+	std::map<feature_t, std::pair<float, float>> features_weights; // features with their weights
+
+	bool rl::stepFA(state_t& state, bool reset);
+	float getQValueFA(const state_t& state, const action_t& action);
+
 };

@@ -304,6 +304,72 @@ void MainWindow::loopSarsa()
 	}
 }
 
+// lolo zapisywanko popraw + wyswietlanie mordo
+void MainWindow::loopFA()
+{
+	static int episode = 0;
+	static bool nauka = true;
+	if (this->reset == true)
+	{
+		episode = 0;
+		nauka = true;
+	}
+	if (this->boost == false) this->display_board(this->cur_state);
+
+	if (episode < this->rlObject->episodes)
+	{
+		bool is_terminal = this->rlObject->stepFA(this->cur_state, this->reset);
+		if (this->reset == true) this->reset = false;
+		if (this->boost == false) this->display_board(this->cur_state);
+
+		/*for (const auto& state : this->rlObject->state_QValues)
+		{
+			printf("* player: (%d, %d), ghost: (%d, %d), coin: (%d, %d):\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second);
+			for (const auto& action : state.second)
+			{
+				printf("\t-%d. %f\n", action.first, action.second);
+			}
+		}*/
+
+		if (is_terminal == true)
+		{
+			++episode;
+			if (nauka == true) this->ui->progressBar->setValue(episode);
+			qDebug() << "TERMINAL -> EP." << episode << "/" << this->rlObject->episodes;
+			this->cur_state = this->starting_state;
+			if (episode == this->rlObject->episodes) this->ui->SpeedSpinBox->setValue(250);
+			return;
+		}
+	}
+	else
+	{
+		qDebug() << "KONIEC NAUKI\n";
+
+		FILE* fp;
+		fp = fopen("Svalues.txt", "w");
+		for (const auto& state : this->rlObject->state_QValues)
+		{
+			fprintf(fp, "* player: (%d, %d), ghost: (%d, %d), coin: (%d, %d):\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second);
+			for (const auto& action : state.second)
+			{
+				fprintf(fp, "\t-%d. %f\n", action.first, action.second);
+			}
+		}
+		fclose(fp);
+
+		if (nauka == false) QApplication::quit();
+		else
+		{
+			this->rlObject->epsilon = -1;
+			this->rlObject->alpha = 1;
+			nauka = false;
+			this->ui->BoostButton->setChecked(false);
+			this->boost = false;
+			episode = 0;
+		}
+	}
+}
+
 void MainWindow::keyPressEvent(QKeyEvent* event)
 {
 	if (event->key() != Qt::Key_Down && event->key() != Qt::Key_Up && event->key() != Qt::Key_Left && event->key() != Qt::Key_Right) return;

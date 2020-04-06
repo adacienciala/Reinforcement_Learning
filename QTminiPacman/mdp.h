@@ -5,6 +5,7 @@
 #include <string>
 
 enum action_t { NORTH, EAST, SOUTH, WEST, STAY };
+enum feature_t { FOOD_DISTANCE, GHOST_DISTANCE };
 
 struct state_t
 {

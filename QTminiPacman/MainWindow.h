@@ -48,6 +48,7 @@ private slots:
 	void loopValue();
 	void loopQLearning();
 	void loopSarsa();
+	void loopFA();
 
     void on_VPButton_clicked(bool checked);
     void on_QLButton_clicked(bool checked);
