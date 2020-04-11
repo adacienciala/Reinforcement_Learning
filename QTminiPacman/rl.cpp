@@ -11,7 +11,7 @@ rl::rl(mdp* environment)
 	this->iterations = 100;
 	this->environment = environment;
 	this->epsilon = 0.7f;
-	this->alpha = 0.5f;
+	this->alpha = 0.01f;
 	this->episodes = 500;
 	this->mode = NOT_SET;
 	this->features_weights = { { FOOD_DISTANCE, { 0.0, 0.0 } }, { GHOST_DISTANCE, { 0.0, 0.0 } } };
@@ -170,7 +170,7 @@ void rl::runQLearning(const state_t& starting_state)
 		bool is_terminal = false;
 		while (is_terminal == false)
 		{
-			action_t actionPlayer = getAction(state);
+			action_t actionPlayer = getAction(state, QLEARNING);
 
 			std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer);
 
@@ -205,7 +205,7 @@ bool rl::stepQLearning(state_t& state)
 	int reward = 0;
 	bool is_terminal = false;
 
-	action_t actionPlayer = getAction(state);
+	action_t actionPlayer = getAction(state, QLEARNING);
 
 	std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer);
 
@@ -230,10 +230,10 @@ bool rl::stepSarsa(state_t& state, bool reset)
 	int reward = 0;
 	bool is_terminal = false;
 
-	static action_t actionPlayer = getAction(state);
+	static action_t actionPlayer = getAction(state, SARSA);
 	if (reset == true)
 	{
-		actionPlayer = getAction(state);
+		actionPlayer = getAction(state, SARSA);
 	}
 
 	std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer);
@@ -247,7 +247,7 @@ bool rl::stepSarsa(state_t& state, bool reset)
 	return is_terminal;
 }
 
-action_t rl::getAction(const state_t& state)
+action_t rl::getAction(const state_t& state, learningMode_t mode)
 {
 	// for the player: [player == true]
 	// randomizes a number and, depending on the set epsilon, chooses an action
@@ -257,10 +257,11 @@ action_t rl::getAction(const state_t& state)
 	// for the ghost: [player == false]
 	// returns random action
 
-	float prob = rand() % 100 / (float)100;
+	float prob = rand() % 100 / 100.0f;
 	if (prob > this->epsilon)
 	{
-		return computeActionFromQVal(state);
+		if (mode == FA) return computeActionFromQValFA(state);
+		else return computeActionFromQVal(state);
 	}
 	else
 	{
@@ -381,23 +382,34 @@ action_t rl::computeActionFromQVal(const state_t& state)
 	}
 }
 
-bool rl::stepFA(state_t& state, bool reset)
+void rl::resetFeatureWeights()
+{
+	// randomize weights for the features
+
+	for (auto& [feature, valWeight] : features_weights)
+	{
+		valWeight.first = 0.0f;
+		valWeight.second = ((rand() % 21) - 10) / 100.0f;
+	}
+}
+
+bool rl::stepFA(state_t& state)
 {
 	// a step is making a move from the given state
 	// gets actions for the ghost and the player
 	// gets feedback from the mdp
-	// calculates QVal of the state and saves it
+	// calculates the diff to correct the features' weights
 	// returns info whether the next state is terminal (so the episode can end)
 
 	state_t next_state;
 	int reward = 0;
 	bool is_terminal = false;
 
-	action_t actionPlayer = getAction(state);
+	action_t actionPlayer = getAction(state, FA);
 
 	std::tie(next_state, reward, is_terminal) = this->environment->makeQStep(state, actionPlayer);
 
-	float diff = (reward + (this->delta * computeValFromQVal(next_state))) - getQValueFA(state, actionPlayer);
+	float diff = (reward + (this->delta * computeValFromQValFA(next_state))) - getQValueFA(state);
 	for (auto& [feature, valWeight] : features_weights)
 	{
 		valWeight.second = valWeight.second + (this->alpha * diff * valWeight.first);
@@ -407,21 +419,24 @@ bool rl::stepFA(state_t& state, bool reset)
 	return is_terminal;
 }
 
-float rl::getQValueFA(const state_t& state, const action_t& action)
+// trzeba to zrobiæ na coordsach bo przy reward nie widzi monety
+float rl::getQValueFA(const state_t& state)
 {
 	// feautures:
 	// - distance to food
 	// - distance to ghost
 
-	int foodDistance = 0;
-	int ghostDistance = 0;
+	float foodDistance = 0.0f;
+	float ghostDistance = 0.0f;
 	std::deque<std::pair<state_t, int>> search;
+	std::map<state_t, bool> visited;
 	search.push_back({ state, 0 });
 
-	while ((!foodDistance || !!ghostDistance) && search.size())
+	while ((!foodDistance || !ghostDistance) && search.size())
 	{
-		std::pair<state_t, int> temp = search.front;
+		std::pair<state_t, int> temp = search.front();
 		search.pop_front();
+		visited[temp.first] = true;
 		
 		if (this->environment->isTerminal(temp.first))
 		{
@@ -438,33 +453,38 @@ float rl::getQValueFA(const state_t& state, const action_t& action)
 		std::vector<action_t> possibleActions = this->environment->getPossibleActions(temp.first);
 		for (const auto& action : possibleActions)
 		{
-			int x = 0;
-			int y = 0;
-			state_t tempState = temp.first;
-			switch (action)
+			if (this->environment->isAvailable(temp.first.player, action))
 			{
-			case NORTH:
-				y -= 1;
-				break;
-			case SOUTH:
-				y += 1;
-				break;
-			case EAST:
-				x += 1;
-				break;
-			case WEST:
-				x -= 1;
-				break;
-			default:
-				continue;
+				int x = 0;
+				int y = 0;
+				state_t tempState = temp.first;
+				switch (action)
+				{
+				case NORTH:
+					y -= 1;
+					break;
+				case SOUTH:
+					y += 1;
+					break;
+				case EAST:
+					x += 1;
+					break;
+				case WEST:
+					x -= 1;
+					break;
+				default:
+					continue;
+				}
+				tempState.player.first += x;
+				tempState.player.second += y;
+				if (visited.find(tempState)==visited.end()) search.push_back({ tempState, temp.second + 1}); 
 			}
-			temp.first.player.first += x;
-			temp.first.player.second += y;
-			search.push_back({ tempState, temp.second });
 		}
 	}
-	features_weights.at(FOOD_DISTANCE).first = foodDistance;
-	features_weights.at(GHOST_DISTANCE).first = ghostDistance;
+
+	int boardSize = this->environment->height * this->environment->width;
+	features_weights.at(FOOD_DISTANCE).first = foodDistance / boardSize;
+	features_weights.at(GHOST_DISTANCE).first = ghostDistance / boardSize;
 
 	float value = 0;
 	for (const auto& [feature, valWeight] : features_weights)
@@ -472,4 +492,69 @@ float rl::getQValueFA(const state_t& state, const action_t& action)
 		value += valWeight.first * valWeight.second;
 	}
 	return value;
+}
+
+float rl::computeValFromQValFA(const state_t& state)
+{
+	// returns max of the possible actions' values
+
+	float QVal, max = 0;
+	bool first = true;
+	std::vector<action_t> possibleActions = this->environment->getPossibleActions(state);
+	for (const auto& action : possibleActions)
+	{
+		if (this->environment->isAvailable(state.player, action))
+		{
+			QVal = getQValueFA(state);
+			if (first == true || QVal > max)
+			{
+				max = QVal;
+			}
+			first = false;
+		}
+	}
+
+	return max;
+}
+
+action_t rl::computeActionFromQValFA(const state_t& state)
+{
+	// returns action linked to the max of the possible actions' values (or to random of equal max ones)
+	
+	std::vector<float> values;
+	float QVal, max = 0;
+	bool first = true;
+	std::vector<action_t> possibleActions = this->environment->getPossibleActions(state);
+	for (const auto& action : possibleActions)
+	{
+		if (this->environment->isAvailable(state.player, action))
+		{
+			QVal = getQValueFA(state);
+			values.push_back(QVal);
+			if (first == true || QVal > max)
+			{
+				max = QVal;
+			}
+			first = false;
+		}
+	}
+
+	int counter = 0;
+	for (const auto& val : values)
+	{
+		if (val == max) counter++;
+	}
+
+	int id = rand() % counter;
+	for (const auto& action : possibleActions)
+	{
+		if (this->environment->isAvailable(state.player, action))
+		{
+			QVal = getQValueFA(state);
+			if (QVal == max)
+			{
+				if (id-- == 0) return action;
+			}
+		}
+	}
 }

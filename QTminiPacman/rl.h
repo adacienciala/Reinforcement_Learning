@@ -6,7 +6,7 @@
 
 #include "mdp.h"
 
-enum mode_t { NOT_SET, VPITERATIONS, QLEARNING, SARSA };
+enum learningMode_t { NOT_SET, VPITERATIONS, QLEARNING, SARSA, FA };
 
 class rl
 {
@@ -25,7 +25,7 @@ private:
 public:
 
 	rl(mdp* environment);
-	enum mode_t mode;
+	enum learningMode_t mode;
 	
 	// VALUE&POLICY iterations
 	int iterations;
@@ -49,12 +49,15 @@ public:
 	float computeValFromQVal(const state_t& state);
 	action_t computeActionFromQVal(const state_t& state);
 	float getQValue(const state_t& state, const action_t& action);
-	action_t getAction(const state_t& state);
+	action_t getAction(const state_t& state, learningMode_t mode);
 
 	// FUNCTION APPROXIMATION
 	std::map<feature_t, std::pair<float, float>> features_weights; // features with their weights
 
-	bool rl::stepFA(state_t& state, bool reset);
-	float getQValueFA(const state_t& state, const action_t& action);
+	void resetFeatureWeights();
+    bool stepFA(state_t& state);
+	float getQValueFA(const state_t& state);
+	float computeValFromQValFA(const state_t& state);
+	action_t computeActionFromQValFA(const state_t& state);
 
 };

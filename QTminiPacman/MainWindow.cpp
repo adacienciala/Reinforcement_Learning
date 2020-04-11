@@ -304,7 +304,6 @@ void MainWindow::loopSarsa()
 	}
 }
 
-// lolo zapisywanko popraw + wyswietlanie mordo
 void MainWindow::loopFA()
 {
 	static int episode = 0;
@@ -318,18 +317,9 @@ void MainWindow::loopFA()
 
 	if (episode < this->rlObject->episodes)
 	{
-		bool is_terminal = this->rlObject->stepFA(this->cur_state, this->reset);
+		bool is_terminal = this->rlObject->stepFA(this->cur_state);
 		if (this->reset == true) this->reset = false;
 		if (this->boost == false) this->display_board(this->cur_state);
-
-		/*for (const auto& state : this->rlObject->state_QValues)
-		{
-			printf("* player: (%d, %d), ghost: (%d, %d), coin: (%d, %d):\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second);
-			for (const auto& action : state.second)
-			{
-				printf("\t-%d. %f\n", action.first, action.second);
-			}
-		}*/
 
 		if (is_terminal == true)
 		{
@@ -345,27 +335,16 @@ void MainWindow::loopFA()
 	{
 		qDebug() << "KONIEC NAUKI\n";
 
-		FILE* fp;
-		fp = fopen("Svalues.txt", "w");
-		for (const auto& state : this->rlObject->state_QValues)
-		{
-			fprintf(fp, "* player: (%d, %d), ghost: (%d, %d), coin: (%d, %d):\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second);
-			for (const auto& action : state.second)
-			{
-				fprintf(fp, "\t-%d. %f\n", action.first, action.second);
-			}
-		}
-		fclose(fp);
-
 		if (nauka == false) QApplication::quit();
 		else
 		{
 			this->rlObject->epsilon = -1;
-			this->rlObject->alpha = 1;
+			this->rlObject->alpha = 0;
 			nauka = false;
 			this->ui->BoostButton->setChecked(false);
 			this->boost = false;
 			episode = 0;
+			this->rlObject->episodes = 1000;
 		}
 	}
 }
@@ -451,6 +430,7 @@ void MainWindow::on_VPButton_clicked(bool checked)
 		this->ui->Options->setTitle("MODE: Value + Policy");
 		this->ui->QLButton->setChecked(false);
 		this->ui->SarsaButton->setChecked(false);
+		this->ui->FAButton->setChecked(false);
 	}
 	else
 	{
@@ -468,6 +448,7 @@ void MainWindow::on_QLButton_clicked(bool checked)
 		this->ui->Options->setTitle("MODE: Qlearning");
 		this->ui->VPButton->setChecked(false);
 		this->ui->SarsaButton->setChecked(false);
+		this->ui->FAButton->setChecked(false);
 	}
 	else
 	{
@@ -485,6 +466,25 @@ void MainWindow::on_SarsaButton_clicked(bool checked)
 		this->ui->Options->setTitle("MODE: Sarsa");
 		this->ui->VPButton->setChecked(false);
 		this->ui->QLButton->setChecked(false);
+		this->ui->FAButton->setChecked(false);
+	}
+	else
+	{
+		this->rlObject->mode = NOT_SET;
+		this->ui->Options->setTitle("MODE:");
+	}
+}
+
+void MainWindow::on_FAButton_clicked(bool checked)
+{
+	if (checked == true)
+	{
+		this->ui->ItLabel->setText("EPISODES");
+		this->rlObject->mode = FA;
+		this->ui->Options->setTitle("MODE: Function Approximation");
+		this->ui->VPButton->setChecked(false);
+		this->ui->QLButton->setChecked(false);
+		this->ui->SarsaButton->setChecked(false);
 	}
 	else
 	{
@@ -495,16 +495,8 @@ void MainWindow::on_SarsaButton_clicked(bool checked)
 
 void MainWindow::on_ItSpinBox_valueChanged(int value)
 {
-	switch (this->rlObject->mode)
-	{
-	case VPITERATIONS:
-		this->rlObject->iterations = value;
-		break;
-	case QLEARNING:
-	case SARSA:
-		this->rlObject->episodes = value;
-		break;
-	}
+	this->rlObject->iterations = value;
+	this->rlObject->episodes = value;
 	this->ui->progressBar->setMaximum(value);
 }
 
@@ -518,13 +510,10 @@ void MainWindow::on_RunButton_clicked(bool checked)
 		{
 		case VPITERATIONS:
 		{
-			static bool already_done = false;
-			if (this->reset = true) already_done = false;
 			qDebug() << "VALUE ON\n";
 			this->rlObject->runValueIteration();
 			qDebug() << "POLICY ON\n";
 			this->rlObject->runPolicyIteration();
-			already_done = true;
 			connect(myTimer, &QTimer::timeout, this, &MainWindow::loopValue);
 			break;
 		}
@@ -535,6 +524,11 @@ void MainWindow::on_RunButton_clicked(bool checked)
 		case SARSA:
 			qDebug() << "SARSA ON\n";
 			connect(myTimer, &QTimer::timeout, this, &MainWindow::loopSarsa);
+			break;
+		case FA:
+			qDebug() << "FA ON\n";
+			this->rlObject->resetFeatureWeights();
+			connect(myTimer, &QTimer::timeout, this, &MainWindow::loopFA);
 			break;
 		case NOT_SET:
 			this->ui->RunButton->setText("RUN");
@@ -560,6 +554,10 @@ void MainWindow::on_RunButton_clicked(bool checked)
 			qDebug() << "SARSA OFF";
 			disconnect(myTimer, &QTimer::timeout, this, &MainWindow::loopSarsa);
 			break;
+		case FA:
+			qDebug() << "FA OFF";
+			disconnect(myTimer, &QTimer::timeout, this, &MainWindow::loopFA);
+			break;
 		}
 	}
 }
@@ -570,6 +568,8 @@ void MainWindow::on_ResetButton_clicked()
 	this->timerSpeed = 1;
 	this->reset = true;
 	this->rlObject->mode = NOT_SET;
+	this->rlObject->epsilon = 0.7f;
+	this->rlObject->alpha = 0.01f;
 
 	this->ui->trainLabel->setText("");
 	this->ui->RunButton->setText("RUN");
@@ -578,15 +578,17 @@ void MainWindow::on_ResetButton_clicked()
 	this->ui->progressBar->setValue(0);
 	this->ui->SpeedSpinBox->setValue(1);
 	this->ui->ItSpinBox->setValue(1000);
+	this->ui->VPButton->setChecked(false);
 	this->ui->QLButton->setChecked(false);
 	this->ui->SarsaButton->setChecked(false);
-	this->ui->VPButton->setChecked(false);
+	this->ui->FAButton->setChecked(false);
 	this->ui->RunButton->setChecked(false);
 	this->ui->BoostButton->setChecked(false);
 	printf("RESET");
 
 	this->cur_state = this->starting_state;
 	this->rlObject->clearStateValues();
+	this->rlObject->resetFeatureWeights();
 	this->rlObject->state_QValues.clear();
 	this->rlObject->episodes = 1000;
 

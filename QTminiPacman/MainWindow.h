@@ -63,5 +63,6 @@ private slots:
     void on_progressBar_valueChanged(int value);
 
     void on_BoostButton_clicked(bool checked);
+    void on_FAButton_clicked(bool checked);
 };
 #endif // MAINWINDOW_H
