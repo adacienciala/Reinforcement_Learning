@@ -3,10 +3,21 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <deque>
 
 #include "mdp.h"
+#include "neuralNetwork/neuralNetwork.h"
 
-enum learningMode_t { NOT_SET, VPITERATIONS, QLEARNING, SARSA, FA };
+enum learningMode_t { NOT_SET, VPITERATIONS, QLEARNING, SARSA, FA, DQL };
+
+struct memory_bit_t
+{
+	state_t state;
+	action_t action;
+	int reward;
+	state_t next_state;
+	bool done;
+};
 
 class rl
 {
@@ -14,13 +25,15 @@ class rl
 private:
 
 	mdp* environment;
+	float gamma; // the "forgetting" factor
 
 	// VALUE&POLICY iterations
 	std::map<state_t, action_t> state_policies;
-	float gamma; // the "forgetting" factor
-	float delta; // the difference between state value in each iteration
 	
-	// QLEARNING
+	// DEEP QLEARNING
+	int memory_capacity;
+	std::deque<memory_bit_t> memoryDQL;
+	neuralNetwork network;
 
 public:
 
@@ -56,8 +69,16 @@ public:
 
 	void resetFeatureWeights();
     bool stepFA(state_t& state);
-	float getQValueFA(const state_t& state);
+	float getQValueFA(const state_t& state, const action_t& action);
 	float computeValFromQValFA(const state_t& state);
 	action_t computeActionFromQValFA(const state_t& state);
+
+	// DEEP QLEARNING
+	void resetDQLNetwork();
+	void replayDQL(int batch_size);
+	bool stepDQL(state_t& state);
+	float getQValueDQL(const state_t& state, const action_t& action);
+	float computeValFromQValDQL(const state_t& state);
+	action_t computeActionFromQValDQL(const state_t& state);
 
 };

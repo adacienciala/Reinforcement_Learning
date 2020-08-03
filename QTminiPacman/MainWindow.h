@@ -49,6 +49,7 @@ private slots:
 	void loopQLearning();
 	void loopSarsa();
 	void loopFA();
+	void loopDQL();
 
     void on_VPButton_clicked(bool checked);
     void on_QLButton_clicked(bool checked);
@@ -64,5 +65,6 @@ private slots:
 
     void on_BoostButton_clicked(bool checked);
     void on_FAButton_clicked(bool checked);
+    void on_DQLButton_clicked(bool checked);
 };
 #endif // MAINWINDOW_H

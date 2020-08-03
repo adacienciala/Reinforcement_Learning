@@ -6,7 +6,6 @@ mdp::mdp(const std::map<std::pair<int, int>, int>& grid, int width, int height)
 	this->height = height;
 	this->width = width;
 	this->grid = grid;
-	this->gamma = 0.9f;
 	this->forbVal = -100;
 }
 
@@ -38,22 +37,10 @@ std::vector<state_t> mdp::getAllStates() const
 
 std::vector<action_t> mdp::getPossibleActions(const state_t& state) const
 {
-	// finds the given state in the vector and gets all the possible actions from that state
-	// if there's no possible actions, returns an empty vector
-	// otherwise returns a vector of enums (you can request actions into walls, too)
+	// returns a vector of enums (you can request actions into walls, too)
+	// gonna have to refactor that cause it's extremely stupid
 
-	const auto& allStates = getAllStates();
-	
-	const auto searchingState = std::find_if(allStates.begin(), allStates.end(), [state](const state_t& currentState)
-		{
-			return (currentState.player == state.player && currentState.ghost == state.ghost && currentState.coin == state.coin);
-		});
-
-	if (searchingState != allStates.end())
-	{
-		return { NORTH, EAST, SOUTH, WEST };
-	}
-	else return std::vector<action_t>();
+	return { NORTH, EAST, SOUTH, WEST };
 }
 
 std::vector<state_t> mdp::getNextStates(const state_t& state, action_t action) const
@@ -80,7 +67,7 @@ std::vector<state_t> mdp::getNextStates(const state_t& state, action_t action) c
 std::map<std::pair<action_t, state_t>, float> mdp::getTransitions(const state_t& state, action_t action) const
 {
 	// looks for the given state, based on the action determines player's coordinations
-	// calculates possible ghost's moves, deletes duplicates (so it's action is STAY)
+	// calculates possible ghost's moves (when forbidden action, returns STAY), deletes duplicates 
 	// if terminal or unknown state, returns an empty vector
 	// otherwise returns a map of pairs {action, nextState(x, y)} with probabilities 
 
@@ -263,4 +250,31 @@ action_t mdp::randomAction(const std::pair<int, int>& coords, bool player)
 
 	std::vector<action_t> possibleActions = this->getPossibleActionsQLearning(coords, player);
 	return possibleActions[rand() % possibleActions.size()];
+}
+
+std::vector<double> mdp::getViewAsVector(const state_t& state)
+{
+	// returns the walls, player, ghost and food from grid with specific values as a vector
+	// empty	-	-0.1
+	// wall		-	-1.0
+	// player	-	 0.2
+	// ghost	-	-0.5
+	// coin		-	 0.5
+
+	std::vector<double> data;
+	data.reserve(width * height);
+
+	std::map<std::pair<int, int>, int> gridCopy = this->grid;
+
+	gridCopy[state.player] = 20;
+	gridCopy[state.ghost] = -100;
+	gridCopy[state.coin] = 70;
+
+	for (auto& [position, value] : gridCopy)
+	{
+		if (value) data.push_back((double)value / 100.0f);
+		else data.push_back(-0.2f); 
+	}
+
+	return data;
 }

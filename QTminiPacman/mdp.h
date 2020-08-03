@@ -5,7 +5,7 @@
 #include <string>
 
 enum action_t { NORTH, EAST, SOUTH, WEST, STAY };
-enum feature_t { FOOD_DISTANCE, GHOST_DISTANCE };
+enum feature_t { FOOD_DISTANCE, GHOST_DISTANCE, GHOSTS_NEAR, FOOD_NEAR };
 
 struct state_t
 {
@@ -54,7 +54,6 @@ private:
 	// GRID - map of < (x, y), WALL/EMPTY >
 	std::map<std::pair<int, int>, int> grid;
 	state_t cur_state;
-	float gamma;
 	int forbVal;
 	
 public:
@@ -76,6 +75,9 @@ public:
 	std::vector<action_t> getPossibleActionsQLearning(const std::pair<int, int>& coords, bool player) const;
 	std::tuple<state_t, int, bool> makeQStep(const state_t& cur_state, const action_t& actionPlayer);
     action_t randomAction(const std::pair<int, int>& coords, bool player);
+
+	// DQL utilities
+	std::vector<double> getViewAsVector(const state_t& state);
 
 };
 

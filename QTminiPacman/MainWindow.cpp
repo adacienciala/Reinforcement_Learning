@@ -5,7 +5,11 @@
 #include <QDebug>
 
 #define DIF_EXAMPLE false
+#define EPSILON (0.3f)
+#define ALPHA (0.05f)
 
+// ascpect ratio przy pierwszym episode?
+// ladowanie z pliku
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -33,7 +37,7 @@ MainWindow::MainWindow(QWidget *parent)
 		this->grid = {
 			{{0, 0}, 0 }, {{1, 0}, 0 }, {{2, 0}, 0 }, {{3, 0}, 0 },
 			{{0, 1}, 0 }, {{1, 1}, 0 }, {{2, 1}, 0 }, {{3, 1}, -0 },
-			{{0, 2}, 0 }, {{1, 2}, -100 }, {{2, 2}, -100 }, {{3, 2}, 0 },
+			{{0, 2}, 0 }, {{1, 2}, 0 }, {{2, 2}, 0 }, {{3, 2}, 0 },
 			{{0, 3}, 0 }, {{1, 3}, 0 }, {{2, 3}, 0 }, {{3, 3}, 0 },
 			{{0, 4}, 0 }, {{1, 4}, 0 }, {{2, 4}, 0 }, {{3, 4}, 0 } };
 		this->starting_state = { { 0, 4 }, { 1, 1 }, {2, 0} };
@@ -41,21 +45,35 @@ MainWindow::MainWindow(QWidget *parent)
 
 	int width = 4, height = 5;
 
-	//automatyczne przypisanie labelow by bylo fajne kiedys V:
-	/*for (int i = 0; i < width; ++i)
-	{
-		for (int j = 0; j < height; ++j)
-		{
-			
-		}
-	}*/
 
-	this->labels = {
+	for (int x = 0; x < width; ++x)
+	{
+		for (int y = 0; y < height; ++y)
+		{
+			QLabel* newLabel = new QLabel(this->ui->gridLayoutWidget);
+			newLabel->setObjectName(QString::fromUtf8("label").append(x + '0').append(y + '0'));
+			newLabel->setAutoFillBackground(true);
+			newLabel->setFrameShape(QFrame::NoFrame);
+			newLabel->setScaledContents(true);
+			newLabel->setAlignment(Qt::AlignCenter);
+			newLabel->setIndent(0);
+
+			this->ui->gridLayout->addWidget(newLabel, y, x, 1, 1);
+			this->labels.insert({ { x, y }, newLabel });
+		}
+	}
+
+	for (auto [pair, lab] : this->labels) {
+		qDebug() << "[" << pair.first << "," << pair.second << "], ";
+	}
+	qDebug() << this->ui->gridLayout->parent()->children().size();
+
+	/*this->labels = {
 		{{0, 0}, ui->label_00}, {{1, 0}, ui->label_10}, {{2, 0}, ui->label_20}, {{3, 0}, ui->label_30},
 		{{0, 1}, ui->label_01}, {{1, 1}, ui->label_11}, {{2, 1}, ui->label_21}, {{3, 1}, ui->label_31},
 		{{0, 2}, ui->label_02}, {{1, 2}, ui->label_12}, {{2, 2}, ui->label_22}, {{3, 2}, ui->label_32},
 		{{0, 3}, ui->label_03}, {{1, 3}, ui->label_13}, {{2, 3}, ui->label_23}, {{3, 3}, ui->label_33},
-		{{0, 4}, ui->label_04}, {{1, 4}, ui->label_14}, {{2, 4}, ui->label_24}, {{3, 4}, ui->label_34}};
+		{{0, 4}, ui->label_04}, {{1, 4}, ui->label_14}, {{2, 4}, ui->label_24}, {{3, 4}, ui->label_34}};*/
 
 
 	for (const auto& [pos, label] : this->labels)
@@ -102,7 +120,7 @@ void MainWindow::display_board(const state_t& state) const
 		{
 			label->setPixmap(pixGhost.scaled(label->size(), Qt::KeepAspectRatio));
 		}
-		if (DIF_EXAMPLE)
+		//if (DIF_EXAMPLE)
 		{
 			if (this->grid.at(pos) == -100)
 			{
@@ -230,7 +248,7 @@ void MainWindow::loopQLearning()
 		else
 		{
 			this->rlObject->epsilon = -1;
-			this->rlObject->alpha = 1;
+			this->rlObject->alpha = 0;
 			nauka = false;
 			this->ui->BoostButton->setChecked(false);
 			this->boost = false;
@@ -255,15 +273,6 @@ void MainWindow::loopSarsa()
 		bool is_terminal = this->rlObject->stepSarsa(this->cur_state, this->reset);
 		if (this->reset == true) this->reset = false;
 		if (this->boost == false) this->display_board(this->cur_state);
-
-		/*for (const auto& state : this->rlObject->state_QValues)
-		{
-			printf("* player: (%d, %d), ghost: (%d, %d), coin: (%d, %d):\n", state.first.player.first, state.first.player.second, state.first.ghost.first, state.first.ghost.second, state.first.coin.first, state.first.coin.second);
-			for (const auto& action : state.second)
-			{
-				printf("\t-%d. %f\n", action.first, action.second);
-			}
-		}*/
 
 		if (is_terminal == true)
 		{
@@ -295,7 +304,7 @@ void MainWindow::loopSarsa()
 		else
 		{
 			this->rlObject->epsilon = -1;
-			this->rlObject->alpha = 1;
+			this->rlObject->alpha = 0;
 			nauka = false;
 			this->ui->BoostButton->setChecked(false);
 			this->boost = false;
@@ -345,6 +354,89 @@ void MainWindow::loopFA()
 			this->boost = false;
 			episode = 0;
 			this->rlObject->episodes = 1000;
+		}
+	}
+}
+
+void MainWindow::loopDQL()
+{
+	static int episode = 0;
+	static bool nauka = true;
+	if (this->reset == true)
+	{
+		this->reset = false;
+		episode = 0;
+		nauka = true;
+	}
+	if (this->boost == false) this->display_board(this->cur_state);
+
+	static int won = 0;
+	if (episode < this->rlObject->episodes)
+	{
+		bool is_terminal = this->rlObject->stepDQL(this->cur_state);
+		if (nauka)this->rlObject->replayDQL(32);
+		
+		if (this->boost == false) this->display_board(this->cur_state);
+
+		if (is_terminal == true)
+		{
+			++episode;
+			if (nauka == true) this->ui->progressBar->setValue(episode);
+			qDebug() << "TERMINAL -> EP." << episode << "/" << this->rlObject->episodes;
+			if (!nauka) {
+				/*if (episode == 1000)
+				{
+					QApplication::quit();
+				}*/
+				if (episode == 1) won = 0;
+			}
+			if (this->cur_state.player == this->cur_state.coin)
+				won++;
+			///else
+			this->cur_state = this->starting_state;
+			{
+				
+				int free_coords = 0;
+				for (const auto& [pos, val] : this->grid)
+				{
+					if (val != -100) free_coords += 1;
+				}
+				int random = rand() % free_coords;
+
+				std::pair<int, int> new_coin;
+				for (const auto& [pos, val] : this->grid)
+				{
+					if (random == 0 && val != -100)
+					{
+						new_coin = pos;
+						break;
+					}
+					if (val != -100) random -= 1;
+				}
+				this->cur_state.coin = new_coin;
+			}
+			qDebug() << won  << "%";
+			if (episode == this->rlObject->episodes) this->ui->SpeedSpinBox->setValue(250);
+			return;
+		}
+	}
+	else
+	{
+		qDebug() << "KONIEC NAUKI\n";
+
+		if (nauka == false)
+		{
+			qDebug() << ((double)won / this->rlObject->episodes) * 100 << "%";
+			QApplication::quit();
+		}
+		else
+		{
+			this->rlObject->epsilon = -1;
+			this->rlObject->alpha = 0;
+			nauka = false;
+			this->ui->BoostButton->setChecked(false);
+			this->boost = false;
+			episode = 0;
 		}
 	}
 }
@@ -431,6 +523,7 @@ void MainWindow::on_VPButton_clicked(bool checked)
 		this->ui->QLButton->setChecked(false);
 		this->ui->SarsaButton->setChecked(false);
 		this->ui->FAButton->setChecked(false);
+        this->ui->DQLButton->setChecked(false);
 	}
 	else
 	{
@@ -449,6 +542,7 @@ void MainWindow::on_QLButton_clicked(bool checked)
 		this->ui->VPButton->setChecked(false);
 		this->ui->SarsaButton->setChecked(false);
 		this->ui->FAButton->setChecked(false);
+        this->ui->DQLButton->setChecked(false);
 	}
 	else
 	{
@@ -467,6 +561,7 @@ void MainWindow::on_SarsaButton_clicked(bool checked)
 		this->ui->VPButton->setChecked(false);
 		this->ui->QLButton->setChecked(false);
 		this->ui->FAButton->setChecked(false);
+        this->ui->DQLButton->setChecked(false);
 	}
 	else
 	{
@@ -485,12 +580,32 @@ void MainWindow::on_FAButton_clicked(bool checked)
 		this->ui->VPButton->setChecked(false);
 		this->ui->QLButton->setChecked(false);
 		this->ui->SarsaButton->setChecked(false);
+        this->ui->DQLButton->setChecked(false);
 	}
 	else
 	{
 		this->rlObject->mode = NOT_SET;
 		this->ui->Options->setTitle("MODE:");
 	}
+}
+
+void MainWindow::on_DQLButton_clicked(bool checked)
+{
+    if (checked == true)
+    {
+        this->ui->ItLabel->setText("EPISODES");
+        this->rlObject->mode = DQL;
+        this->ui->Options->setTitle("MODE: Deep QLearning");
+        this->ui->VPButton->setChecked(false);
+        this->ui->QLButton->setChecked(false);
+        this->ui->SarsaButton->setChecked(false);
+        this->ui->FAButton->setChecked(false);
+    }
+    else
+    {
+        this->rlObject->mode = NOT_SET;
+        this->ui->Options->setTitle("MODE:");
+    }
 }
 
 void MainWindow::on_ItSpinBox_valueChanged(int value)
@@ -530,6 +645,10 @@ void MainWindow::on_RunButton_clicked(bool checked)
 			this->rlObject->resetFeatureWeights();
 			connect(myTimer, &QTimer::timeout, this, &MainWindow::loopFA);
 			break;
+		case DQL:
+			qDebug() << "DQL ON\n";
+			connect(myTimer, &QTimer::timeout, this, &MainWindow::loopDQL);
+			break;
 		case NOT_SET:
 			this->ui->RunButton->setText("RUN");
 			this->ui->RunButton->setChecked(false);
@@ -558,6 +677,10 @@ void MainWindow::on_RunButton_clicked(bool checked)
 			qDebug() << "FA OFF";
 			disconnect(myTimer, &QTimer::timeout, this, &MainWindow::loopFA);
 			break;
+		case DQL:
+			qDebug() << "DQL OFF";
+			disconnect(myTimer, &QTimer::timeout, this, &MainWindow::loopDQL);
+			break;
 		}
 	}
 }
@@ -568,8 +691,8 @@ void MainWindow::on_ResetButton_clicked()
 	this->timerSpeed = 1;
 	this->reset = true;
 	this->rlObject->mode = NOT_SET;
-	this->rlObject->epsilon = 0.7f;
-	this->rlObject->alpha = 0.01f;
+	this->rlObject->epsilon = EPSILON;
+	this->rlObject->alpha = ALPHA;
 
 	this->ui->trainLabel->setText("");
 	this->ui->RunButton->setText("RUN");
@@ -582,14 +705,16 @@ void MainWindow::on_ResetButton_clicked()
 	this->ui->QLButton->setChecked(false);
 	this->ui->SarsaButton->setChecked(false);
 	this->ui->FAButton->setChecked(false);
+	this->ui->DQLButton->setChecked(false);
 	this->ui->RunButton->setChecked(false);
 	this->ui->BoostButton->setChecked(false);
 	printf("RESET");
 
 	this->cur_state = this->starting_state;
 	this->rlObject->clearStateValues();
-	this->rlObject->resetFeatureWeights();
 	this->rlObject->state_QValues.clear();
+	this->rlObject->resetFeatureWeights();
+	this->rlObject->resetDQLNetwork();
 	this->rlObject->episodes = 1000;
 
 	this->display_board(this->cur_state);
@@ -610,3 +735,4 @@ void MainWindow::on_BoostButton_clicked(bool checked)
 {
 	this->boost = checked;
 }
+
